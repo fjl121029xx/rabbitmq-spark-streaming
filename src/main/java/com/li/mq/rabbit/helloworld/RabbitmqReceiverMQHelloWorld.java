@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 
-public class RabbitMQHelloWorld {
+public class RabbitmqReceiverMQHelloWorld {
     public final static String QUEUE_NAME = "rabbitMQ.test";
 
     /**
@@ -65,7 +65,6 @@ public class RabbitMQHelloWorld {
         factory.setPassword("admin");
 //        factory.setPort(15672);
 
-
         //创建一个新的连接
         Connection connection = factory.newConnection();
         //创建一个通道
@@ -88,7 +87,6 @@ public class RabbitMQHelloWorld {
          * 发送消息的主题
          */
         channel.basicPublish("", QUEUE_NAME, null, message.getBytes("UTF-8"));
-
 
         System.out.println("Producer Send +'" + message + "'");
         //关闭通道和连接
