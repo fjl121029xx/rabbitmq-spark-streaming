@@ -12,7 +12,7 @@ public class RabbitmqReceiver extends Receiver<String> {
 
     private ConnectionFactory factory;
     QueueingConsumer consumer;
-    String hostname = "192.168.65.129";//define hostname for rabbitmq reciver
+    String hostname = "192.168.65.130";//define hostname for rabbitmq reciver
     Connection connection;
     Channel channel;
 
@@ -44,7 +44,7 @@ public class RabbitmqReceiver extends Receiver<String> {
         //创建一个RABBITMQ连接工程
         factory = new ConnectionFactory();
         //设置RabbitMQ地址
-        factory.setHost("192.168.65.129");
+        factory.setHost("192.168.65.130");
         factory.setUsername("admin");
         factory.setPassword("admin");
 
