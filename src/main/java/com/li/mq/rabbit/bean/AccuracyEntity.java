@@ -41,4 +41,9 @@ public class AccuracyEntity {
      *
      */
     private String submitTime;
+
+    /**
+     *
+     */
+    private Long evaluationAnswerTime;
 }

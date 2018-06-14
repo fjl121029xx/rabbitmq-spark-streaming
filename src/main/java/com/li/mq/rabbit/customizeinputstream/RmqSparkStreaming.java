@@ -32,6 +32,7 @@ import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import scala.Tuple2;
 import sun.java2d.pipe.SpanShapeRenderer;
 
+import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -181,21 +182,6 @@ public class RmqSparkStreaming {
         });
 
         topicResultResult.cache();
-        topicResultResult.foreachRDD(new VoidFunction<JavaRDD<Row>>() {
-            @Override
-            public void call(JavaRDD<Row> rowJavaRDD) throws Exception {
-                rowJavaRDD.foreachPartition(new VoidFunction<Iterator<Row>>() {
-                    @Override
-                    public void call(Iterator<Row> rowIterator) throws Exception {
-
-                        while (rowIterator.hasNext()) {
-
-                            System.out.println(rowIterator.next());
-                        }
-                    }
-                });
-            }
-        });
 
         topicResultResult.foreachRDD(new VoidFunction<JavaRDD<Row>>() {
             @Override
@@ -219,12 +205,15 @@ public class RmqSparkStreaming {
                             Long sum = ValueUtil.parseStr2Long(analyzeResult, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
                             Double accuracy = ValueUtil.parseStr2Dou(analyzeResult, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ACCURACY);
                             String submitTimeDate = ValueUtil.parseStr2Str(analyzeResult, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUBMITTIMEDATE);
+                            Long evaluationAnswerTime = ValueUtil.parseStr2Long(analyzeResult, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_EVALUATIONANSWERTIME);
 
+                            evaluationAnswerTime = new BigDecimal(evaluationAnswerTime).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).longValue();
 
                             AccuracyEntity ac = new AccuracyEntity();
                             ac.setUserId(userId);
                             ac.setSubmitTime(submitTimeDate);
 
+                            ac.setEvaluationAnswerTime(evaluationAnswerTime);
                             ac.setCorrect(correct);
                             ac.setError(error);
                             ac.setSum(sum);

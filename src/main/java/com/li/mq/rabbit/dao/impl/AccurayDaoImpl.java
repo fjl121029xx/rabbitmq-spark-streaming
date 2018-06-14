@@ -20,7 +20,7 @@ public class AccurayDaoImpl implements IAccuracyDao {
 
         List<AccuracyEntity> accuracyHad = this.findAll();
 
-        final String batchInsertSql = "replace into tb_accuracy(user_id,correct,error,num,accuracy,submit_time) values(?,?,?,?,?,?)";
+        final String batchInsertSql = "replace into tb_accuracy(id_time,user_id,correct,error,num,accuracy,submit_time,evaluation_answer_time) values(?,?,?,?,?,?,?,?)";
 
         batchSql(accuracies, batchInsertSql);
     }
@@ -33,12 +33,14 @@ public class AccurayDaoImpl implements IAccuracyDao {
 
                 for (AccuracyEntity ac : need2insert) {
                     Object[] params = new Object[]{
+                            ac.getUserId() + ":" + ac.getSubmitTime(),
                             ac.getUserId(),
                             ac.getCorrect(),
                             ac.getError(),
                             ac.getSum(),
                             ac.getAccuracy(),
-                            ac.getSubmitTime()
+                            ac.getSubmitTime(),
+                            ac.getEvaluationAnswerTime()
                     };
 
                     paramsList.add(params);
