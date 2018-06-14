@@ -16,6 +16,7 @@ public class TopicRecordAccuracyUDAF extends UserDefinedAggregateFunction {
 
     @Override
     public StructType inputSchema() {
+
         return DataTypes.createStructType(
                 Arrays.asList(
                         DataTypes.createStructField("correct", DataTypes.IntegerType, true),
@@ -27,6 +28,7 @@ public class TopicRecordAccuracyUDAF extends UserDefinedAggregateFunction {
 
     @Override
     public StructType bufferSchema() {
+
         return DataTypes.createStructType(
                 Arrays.asList(
                         DataTypes.createStructField("accuracybuffer", DataTypes.StringType, true)
@@ -36,16 +38,19 @@ public class TopicRecordAccuracyUDAF extends UserDefinedAggregateFunction {
 
     @Override
     public DataType dataType() {
+
         return DataTypes.StringType;
     }
 
     @Override
     public boolean deterministic() {
+
         return true;
     }
 
     @Override
     public void initialize(MutableAggregationBuffer buffer) {
+
         buffer.update(0, "correct=0|error=0|sum=0|accuracy=0.00|submitTimeDate=0000-00-00|evaluationAnswerTime=000000");
     }
 
