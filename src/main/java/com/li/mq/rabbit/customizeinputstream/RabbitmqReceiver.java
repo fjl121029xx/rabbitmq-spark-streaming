@@ -64,7 +64,6 @@ public class RabbitmqReceiver extends Receiver<String> {
                     throws IOException {
                 String message = new String(body, "UTF-8");
                 store(message);
-                System.out.println("Customer Received '" + message + "'");
             }
         };
 

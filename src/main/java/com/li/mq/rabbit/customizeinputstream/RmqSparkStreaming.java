@@ -1,9 +1,12 @@
 package com.li.mq.rabbit.customizeinputstream;
 
+import com.li.mq.rabbit.bean.AccuracyEntity;
 import com.li.mq.rabbit.bean.TopicRecordEntity;
 import com.li.mq.rabbit.constants.TopicRecordConstant;
+import com.li.mq.rabbit.dao.IAccuracyDao;
 import com.li.mq.rabbit.dao.ITopicRecordDao;
 import com.li.mq.rabbit.dao.factory.DaoFactory;
+import com.li.mq.rabbit.udaf.TopicRecordAccuracyUDAF;
 import com.li.mq.rabbit.utils.ValueUtil;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
@@ -79,6 +82,7 @@ public class RmqSparkStreaming {
             }
         });
 
+
         JavaPairDStream<Long, String> userid2infolist = userid2info.updateStateByKey(new Function2<List<String>, Optional<String>, Optional<String>>() {
 
             @Override
@@ -113,7 +117,6 @@ public class RmqSparkStreaming {
                 return Arrays.asList(t._2.split("&")).iterator();
             }
         });
-        topicRecord.print();
 
         JavaDStream<Row> topicResultResult = topicRecord.transform(new Function<JavaRDD<String>, JavaRDD<Row>>() {
             @Override
@@ -163,70 +166,82 @@ public class RmqSparkStreaming {
                 Dataset<Row> topicRecordDS = sqlContext.createDataFrame(topicRecordRow, schema);
                 topicRecordDS.registerTempTable("tb_topic_record");
 
+                sqlContext.udf().register("correctAnalyze", new TopicRecordAccuracyUDAF());
+
                 Dataset<Row> result = sqlContext.sql("" +
                         "select " +
                         "userId ," +
-                        "course_ware_id ," +
-                        "questionId ," +
-                        "time,correct ," +
-                        "knowledgePoint ," +
-                        "questionSource ," +
-                        "submitTimeDate " +
-                        "from tb_topic_record");
+                        "correctAnalyze(correct,submitTimeDate,time) correctAnalyze " +
+                        "from tb_topic_record " +
+                        "group by userId");
 
                 result.show();
                 return result.toJavaRDD();
             }
         });
 
-        topicResultResult.print();
+        topicResultResult.cache();
+        topicResultResult.foreachRDD(new VoidFunction<JavaRDD<Row>>() {
+            @Override
+            public void call(JavaRDD<Row> rowJavaRDD) throws Exception {
+                rowJavaRDD.foreachPartition(new VoidFunction<Iterator<Row>>() {
+                    @Override
+                    public void call(Iterator<Row> rowIterator) throws Exception {
+
+                        while (rowIterator.hasNext()) {
+
+                            System.out.println(rowIterator.next());
+                        }
+                    }
+                });
+            }
+        });
 
         topicResultResult.foreachRDD(new VoidFunction<JavaRDD<Row>>() {
             @Override
             public void call(JavaRDD<Row> rowJavaRDD) throws Exception {
+
                 rowJavaRDD.foreachPartition(new VoidFunction<Iterator<Row>>() {
 
                     @Override
                     public void call(Iterator<Row> rowIte) throws Exception {
 
-                        List<TopicRecordEntity> trs = new ArrayList<>();
+                        List<AccuracyEntity> acs = new ArrayList<>();
                         while (rowIte.hasNext()) {
 
                             Row rowRecord = rowIte.next();
 
-                            long userid = rowRecord.getLong(0);
-                            long course_ware_id = rowRecord.getLong(1);
-                            long questionId = rowRecord.getLong(2);
-                            long time = rowRecord.getLong(3);
+                            long userId = rowRecord.getLong(0);
+                            String analyzeResult = rowRecord.getString(1);
 
-                            int correct = rowRecord.getInt(4);
-                            long knowledgePoint = rowRecord.getLong(5);
-                            int questionSource = rowRecord.getInt(6);
-                            String submitTimeDate = rowRecord.getString(7);
+                            Long correct = ValueUtil.parseStr2Long(analyzeResult, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
+                            Long error = ValueUtil.parseStr2Long(analyzeResult, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
+                            Long sum = ValueUtil.parseStr2Long(analyzeResult, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
+                            Double accuracy = ValueUtil.parseStr2Dou(analyzeResult, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ACCURACY);
+                            String submitTimeDate = ValueUtil.parseStr2Str(analyzeResult, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUBMITTIMEDATE);
 
-                            TopicRecordEntity tr = new TopicRecordEntity();
 
-                            tr.setUserId(userid);
-                            tr.setCourseWareId(course_ware_id);
-                            tr.setQuestionId(questionId);
-                            tr.setTime(time);
+                            AccuracyEntity ac = new AccuracyEntity();
+                            ac.setUserId(userId);
+                            ac.setSubmitTime(submitTimeDate);
 
-                            tr.setCorrect(correct);
-                            tr.setKnowledgePoint(knowledgePoint);
-                            tr.setQuestionSource(questionSource);
+                            ac.setCorrect(correct);
+                            ac.setError(error);
+                            ac.setSum(sum);
+                            ac.setAccuracy(accuracy);
 
-                            tr.setSubmitTime(submitTimeDate);
-
-                            trs.add(tr);
+                            acs.add(ac);
                         }
 
-                        ITopicRecordDao topicRecordDao = DaoFactory.getITopicRecordDao();
-                        topicRecordDao.insertBatch(trs);
+                        IAccuracyDao accuracyDao = DaoFactory.getIAccuracyDao();
+                        accuracyDao.insertBatch(acs);
 
                     }
                 });
             }
         });
+
+        topicResultResult.print();
 
         jsc.start();
         jsc.awaitTermination();

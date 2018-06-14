@@ -6,5 +6,9 @@ import java.util.List;
 
 public interface ITopicRecordDao {
 
-        void insertBatch(List<TopicRecordEntity> topicRecords);
+
+    /**
+     *
+     */
+    void insertBatch(List<TopicRecordEntity> topicRecords);
 }

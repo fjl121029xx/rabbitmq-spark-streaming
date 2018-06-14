@@ -41,4 +41,31 @@ public class TopicRecordConstant {
      * submitTime   提交时间
      */
     public static final String SSTREAM_TOPIC_RECORD_FIELD_SUBMITTIME = "submitTime";
+
+    /**
+     * udaf param  correct
+     */
+    public static final String SSTREAM_TOPIC_RECORD_UDAF_CORRECT = "correct";
+
+    /**
+     * udaf param  error
+     */
+    public static final String SSTREAM_TOPIC_RECORD_UDAF_ERROR = "error";
+
+    /**
+     * udaf param  sum
+     */
+    public static final String SSTREAM_TOPIC_RECORD_UDAF_SUM = "sum";
+
+    /**
+     * udaf param  accuracy
+     */
+    public static final String SSTREAM_TOPIC_RECORD_UDAF_ACCURACY = "accuracy";
+
+    /**
+     * udaf param  submitTimeDate
+     */
+    public static final String SSTREAM_TOPIC_RECORD_UDAF_SUBMITTIMEDATE = "submitTimeDate";
+
+
 }
