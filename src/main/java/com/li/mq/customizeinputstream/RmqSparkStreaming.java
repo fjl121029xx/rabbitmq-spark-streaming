@@ -164,7 +164,8 @@ public class RmqSparkStreaming {
                 Dataset<Row> result = sqlContext.sql("" +
                         "select " +
                         "userId ," +
-                        "correctAnalyze(correct,submitTimeDate,time) correctAnalyze " +
+                        "correctAnalyze(correct,submitTimeDate,time) correctAnalyze," +
+                        "course2topic(course_ware_id,questionId,correct) courseCorrectAnalyze" +
                         "from tb_topic_record " +
                         "group by userId");
 
