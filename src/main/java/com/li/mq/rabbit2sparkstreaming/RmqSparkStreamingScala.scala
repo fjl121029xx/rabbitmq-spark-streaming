@@ -1,4 +1,4 @@
-package com.li.mq.customizeinputstream
+package com.li.mq.rabbit2sparkstreaming
 
 import org.apache.spark.SparkConf
 import org.apache.spark.streaming.{Durations, StreamingContext}

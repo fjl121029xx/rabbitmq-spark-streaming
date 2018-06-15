@@ -15,6 +15,7 @@ import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.RowFactory;
 import org.apache.spark.sql.SQLContext;
+import org.apache.spark.sql.expressions.UserDefinedAggregateFunction;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.streaming.Durations;
@@ -158,7 +159,6 @@ public class RmqSparkStreaming {
 
                 Dataset<Row> topicRecordDS = sqlContext.createDataFrame(topicRecordRow, schema);
                 topicRecordDS.registerTempTable("tb_topic_record");
-
                 sqlContext.udf().register("correctAnalyze", new TopicRecordAccuracyUDAF());
 
                 Dataset<Row> result = sqlContext.sql("" +
