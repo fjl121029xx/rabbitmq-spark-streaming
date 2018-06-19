@@ -68,9 +68,9 @@ public class TopicRecordConstant {
     public static final String SSTREAM_TOPIC_RECORD_UDAF_SUBMITTIMEDATE = "submitTimeDate";
 
     /**
-     * udaf param  evaluationAnswerTime
+     * udaf param  averageAnswerTime
      */
-    public static final String SSTREAM_TOPIC_RECORD_UDAF_EVALUATIONANSWERTIME = "evaluationAnswerTime";
+    public static final String SSTREAM_TOPIC_RECORD_UDAF_AVERAGEANSWERTIME = "averageAnswerTime";
 
     /**
      * udaf param  courseWareId

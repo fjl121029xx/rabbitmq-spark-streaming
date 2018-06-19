@@ -155,28 +155,28 @@
         </dependency>
 
 
-        <dependency>
-            <groupId>log4j</groupId>
-            <artifactId>log4j</artifactId>
-        </dependency>
+        <!--<dependency>-->
+        <!--<groupId>log4j</groupId>-->
+        <!--<artifactId>log4j</artifactId>-->
+        <!--</dependency>-->
 
-        <dependency>
-            <groupId>org.apache.flume</groupId>
-            <artifactId>flume-ng-sdk</artifactId>
-        </dependency>
+        <!--<dependency>-->
+        <!--<groupId>org.apache.flume</groupId>-->
+        <!--<artifactId>flume-ng-sdk</artifactId>-->
+        <!--</dependency>-->
 
-        <!-- pull in flume core only for unit tests. TODO: not ideal -->
-        <dependency>
-            <groupId>org.apache.flume</groupId>
-            <artifactId>flume-ng-core</artifactId>
-            <scope>test</scope>
-        </dependency>
+        <!--&lt;!&ndash; pull in flume core only for unit tests. TODO: not ideal &ndash;&gt;-->
+        <!--<dependency>-->
+        <!--<groupId>org.apache.flume</groupId>-->
+        <!--<artifactId>flume-ng-core</artifactId>-->
+        <!--<scope>test</scope>-->
+        <!--</dependency>-->
 
-        <dependency>
-            <groupId>org.apache.flume</groupId>
-            <artifactId>flume-ng-configuration</artifactId>
-            <scope>test</scope>
-        </dependency>
+        <!--<dependency>-->
+        <!--<groupId>org.apache.flume</groupId>-->
+        <!--<artifactId>flume-ng-configuration</artifactId>-->
+        <!--<scope>test</scope>-->
+        <!--</dependency>-->
     </dependencies>
 
     <build>

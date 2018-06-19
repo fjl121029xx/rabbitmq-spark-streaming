@@ -38,7 +38,7 @@ public class AccurayDaoImpl implements IAccuracyDao {
                             ac.getSum(),
                             ac.getAccuracy(),
                             ac.getSubmitTime(),
-                            ac.getEvaluationAnswerTime()
+                            ac.getAverageAnswerTime()
                     };
 
                     paramsList.add(params);

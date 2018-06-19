@@ -13,13 +13,21 @@ import lombok.*;
 public class AccuracyEntity {
 
     public static final String HBASE_TABLE = "topic_record_accuracy_analyze";
+
     public static final String HBASE_TABLE_FAMILY_COLUMNS = "accuracy_result";
+
     public static final String HBASE_TABLE_COLUMN_CORRECT = "correct";
     public static final String HBASE_TABLE_COLUMN_ERROR = "error";
     public static final String HBASE_TABLE_COLUMN_SUM = "sum";
     public static final String HBASE_TABLE_COLUMN_ACCURACY = "accuracy";
     public static final String HBASE_TABLE_COLUMN_SUBMITTIME = "submitTime";
-    public static final String HBASE_TABLE_COLUMN_COREVALUATIONANSWERTIMERECT = "corevaluationAnswerTimerect";
+    /**
+     * 平均答题时间
+     */
+    public static final String HBASE_TABLE_COLUMN_AVERAGEANSWERTIME = "averageAnswerTime";
+
+    public static final String HBASE_TABLE_FAMILY_COLUMNS2 = "courseware_correct_analyze";
+    public static final String HBASE_TABLE_COLUMN_COURSEWARECORRECTANALYZE = "courseWareCorrectAnalyze";
     /**
      *
      */
@@ -51,7 +59,14 @@ public class AccuracyEntity {
     private String submitTime;
 
     /**
-     *
+     * 平均答题时间
+     * averageAnswerTime
      */
-    private Long evaluationAnswerTime;
+    private Long averageAnswerTime;
+
+    /**
+     * 知识点答题正确率
+     * courseWareId=0|questionIds=0|accuracy=0&&courseWareId=0|questionIds=0|correct=0|error=0|sum=0|accuracy=0&&courseWareId=0|questionIds=0|accuracy=0&&courseWareId=0|questionIds=0|correct=0|error=0|sum=0|accuracy=0
+     */
+    private String courseCorrectAnalyze;
 }

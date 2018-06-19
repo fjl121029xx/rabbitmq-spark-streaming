@@ -51,7 +51,7 @@ public class TopicRecordAccuracyUDAF extends UserDefinedAggregateFunction {
     @Override
     public void initialize(MutableAggregationBuffer buffer) {
 
-        buffer.update(0, "correct=0|error=0|sum=0|accuracy=0.00|submitTimeDate=0000-00-00|evaluationAnswerTime=000000");
+        buffer.update(0, "correct=0|error=0|sum=0|accuracy=0.00|submitTimeDate=0000-00-00|averageAnswerTime=000000");
     }
 
     @Override
@@ -66,7 +66,7 @@ public class TopicRecordAccuracyUDAF extends UserDefinedAggregateFunction {
         Integer correctLast = ValueUtil.parseStr2Int(last, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
         Integer errorLast = ValueUtil.parseStr2Int(last, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
         Integer sumtLast = ValueUtil.parseStr2Int(last, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
-        Long evaluationAnswerTime = ValueUtil.parseStr2Long(last, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_EVALUATIONANSWERTIME);
+        Long evaluationAnswerTime = ValueUtil.parseStr2Long(last, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_AVERAGEANSWERTIME);
 
 
         sumtLast++;
@@ -86,7 +86,7 @@ public class TopicRecordAccuracyUDAF extends UserDefinedAggregateFunction {
                 "|sum=" + sumtLast +
                 "|accuracy=" + accuracy +
                 "|submitTimeDate=" + submitTimeDate +
-                "|evaluationAnswerTime=" + evaluationAnswerTime);
+                "|averageAnswerTime=" + evaluationAnswerTime);
     }
 
     @Override
@@ -96,7 +96,7 @@ public class TopicRecordAccuracyUDAF extends UserDefinedAggregateFunction {
         Integer correctMerge = ValueUtil.parseStr2Int(accuracyAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
         Integer errorMerge = ValueUtil.parseStr2Int(accuracyAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
         Integer sumMerge = ValueUtil.parseStr2Int(accuracyAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
-        Long evaluationAnswerTimeMerge = ValueUtil.parseStr2Long(accuracyAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_EVALUATIONANSWERTIME);
+        Long evaluationAnswerTimeMerge = ValueUtil.parseStr2Long(accuracyAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_AVERAGEANSWERTIME);
 
 
         String accuracyAnalyzeOther = buffer2.getString(0);
@@ -104,7 +104,7 @@ public class TopicRecordAccuracyUDAF extends UserDefinedAggregateFunction {
         Integer errorOther = ValueUtil.parseStr2Int(accuracyAnalyzeOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
         Integer sumOther = ValueUtil.parseStr2Int(accuracyAnalyzeOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
         String submitTimeDate = ValueUtil.parseStr2Str(accuracyAnalyzeOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUBMITTIMEDATE);
-        Long evaluationAnswerTimeOther = ValueUtil.parseStr2Long(accuracyAnalyzeOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_EVALUATIONANSWERTIME);
+        Long evaluationAnswerTimeOther = ValueUtil.parseStr2Long(accuracyAnalyzeOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_AVERAGEANSWERTIME);
 
 
         correctMerge += correctOther;
@@ -120,7 +120,7 @@ public class TopicRecordAccuracyUDAF extends UserDefinedAggregateFunction {
                 "|sum=" + sumMerge +
                 "|accuracy=" + accuracy +
                 "|submitTimeDate=" + submitTimeDate +
-                "|evaluationAnswerTime=" + evaluationAnswerTimeMerge);
+                "|averageAnswerTime=" + evaluationAnswerTimeMerge);
 
     }
 

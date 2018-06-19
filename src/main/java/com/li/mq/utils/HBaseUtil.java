@@ -3,6 +3,8 @@ package com.li.mq.utils;
 import com.li.mq.bean.AccuracyEntity;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
+import org.apache.hadoop.hbase.HColumnDescriptor;
+import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Get;
@@ -94,10 +96,15 @@ public class HBaseUtil {
 //
 //        HBaseAdmin admin = new HBaseAdmin(conf);
 //        HTableDescriptor table = new HTableDescriptor("topic_record_accuracy_analyze");
-//        HColumnDescriptor columnFamily = new HColumnDescriptor("accuracy_result");
 //
+//        HColumnDescriptor columnFamily = new HColumnDescriptor("accuracy_result");
 //        columnFamily.setMaxVersions(10);
 //        table.addFamily(columnFamily);
+//
+//        HColumnDescriptor columnFamily2 = new HColumnDescriptor("courseware_correct_analyze");
+//        columnFamily2.setMaxVersions(10);
+//        table.addFamily(columnFamily2);
+//
 //        admin.createTable(table);
 //        admin.close();
 //
@@ -116,6 +123,7 @@ public class HBaseUtil {
         put.addColumn(Bytes.toBytes("accuracy_result"), Bytes.toBytes("sum"), Bytes.toBytes("251"));
         put.addColumn(Bytes.toBytes("accuracy_result"), Bytes.toBytes("accuracy"), Bytes.toBytes("0.55"));
         put.addColumn(Bytes.toBytes("accuracy_result"), Bytes.toBytes("submitTime"), Bytes.toBytes("2018-06-13"));
+        put.addColumn(Bytes.toBytes("accuracy_result"), Bytes.toBytes("evaluationAnswerTime"), Bytes.toBytes("483"));
         put.addColumn(Bytes.toBytes("accuracy_result"), Bytes.toBytes("evaluationAnswerTime"), Bytes.toBytes("483"));
 
         table.put(put);
@@ -159,7 +167,8 @@ public class HBaseUtil {
                         ac.getSum().toString(),
                         ac.getAccuracy().toString(),
                         ac.getSubmitTime(),
-                        ac.getEvaluationAnswerTime().toString()
+                        ac.getAverageAnswerTime().toString(),
+                        ac.getCourseCorrectAnalyze()
 
                 };
 
@@ -201,8 +210,12 @@ public class HBaseUtil {
                         Bytes.toBytes(columns[5]));
 
                 put.addColumn(Bytes.toBytes(AccuracyEntity.HBASE_TABLE_FAMILY_COLUMNS),
-                        Bytes.toBytes(AccuracyEntity.HBASE_TABLE_COLUMN_COREVALUATIONANSWERTIMERECT),
+                        Bytes.toBytes(AccuracyEntity.HBASE_TABLE_COLUMN_AVERAGEANSWERTIME),
                         Bytes.toBytes(columns[6]));
+
+                put.addColumn(Bytes.toBytes(AccuracyEntity.HBASE_TABLE_FAMILY_COLUMNS2),
+                        Bytes.toBytes(AccuracyEntity.HBASE_TABLE_COLUMN_COURSEWARECORRECTANALYZE),
+                        Bytes.toBytes(columns[7]));
 
 
                 puts.add(put);

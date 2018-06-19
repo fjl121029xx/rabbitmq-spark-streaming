@@ -5,6 +5,7 @@ import com.li.mq.constants.TopicRecordConstant;
 import com.li.mq.dao.IAccuracyDao;
 import com.li.mq.dao.factory.DaoFactory;
 import com.li.mq.udaf.TopicRecordAccuracyUDAF;
+import com.li.mq.udaf.TopicRecordCourse2AccUDAF;
 import com.li.mq.utils.HBaseUtil;
 import com.li.mq.utils.ValueUtil;
 import org.apache.spark.SparkConf;
@@ -145,7 +146,7 @@ public class RmqSparkStreaming {
 
                 StructType schema = DataTypes.createStructType(Arrays.asList(
                         DataTypes.createStructField("userId", DataTypes.LongType, true),
-                        DataTypes.createStructField("course_ware_id", DataTypes.LongType, true),
+                        DataTypes.createStructField("courseware_id", DataTypes.LongType, true),
                         DataTypes.createStructField("questionId", DataTypes.LongType, true),
                         DataTypes.createStructField("time", DataTypes.LongType, true),
                         DataTypes.createStructField("correct", DataTypes.IntegerType, true),
@@ -159,17 +160,20 @@ public class RmqSparkStreaming {
 
                 Dataset<Row> topicRecordDS = sqlContext.createDataFrame(topicRecordRow, schema);
                 topicRecordDS.registerTempTable("tb_topic_record");
+
                 sqlContext.udf().register("correctAnalyze", new TopicRecordAccuracyUDAF());
+                sqlContext.udf().register("course2topic", new TopicRecordCourse2AccUDAF());
+
 
                 Dataset<Row> result = sqlContext.sql("" +
                         "select " +
                         "userId ," +
-                        "correctAnalyze(correct,submitTimeDate,time) correctAnalyze," +
-                        "course2topic(course_ware_id,questionId,correct) courseCorrectAnalyze" +
+                        "correctAnalyze(correct,submitTimeDate,time) as correctAnalyze," +
+                        "course2topic(courseware_id,questionId,correct) as courseCorrectAnalyze " +
                         "from tb_topic_record " +
                         "group by userId");
 
-//                result.show();
+                result.show();
                 return result.toJavaRDD();
             }
         });
@@ -185,6 +189,66 @@ public class RmqSparkStreaming {
         jsc.close();
 
 
+    }
+
+    private static void save2hbase(JavaDStream<Row> topicResultResult) {
+        topicResultResult.foreachRDD(new VoidFunction<JavaRDD<Row>>() {
+            @Override
+            public void call(JavaRDD<Row> rowJavaRDD) throws Exception {
+
+                rowJavaRDD.coalesce(10).foreachPartition(new VoidFunction<Iterator<Row>>() {
+                    @Override
+                    public void call(Iterator<Row> rowIte) throws Exception {
+
+
+                        List<AccuracyEntity> acs = new ArrayList<>();
+                        while (rowIte.hasNext()) {
+
+                            Row rowRecord = rowIte.next();
+
+                            save2list(acs, rowRecord);
+                        }
+
+                        HBaseUtil.putAll2hbase(AccuracyEntity.HBASE_TABLE, acs);
+                    }
+
+                    private void save2list(List<AccuracyEntity> acs, Row rowRecord) {
+                        long userId = rowRecord.getLong(0);
+                        String userCorrectAnalyze = rowRecord.getString(1);
+                        String courseCorrectAnalyze = rowRecord.getString(2);
+
+
+                        Long correct = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
+                        Long error = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
+                        Long sum = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
+                        Double accuracy = ValueUtil.parseStr2Dou(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ACCURACY);
+                        String submitTimeDate = ValueUtil.parseStr2Str(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUBMITTIMEDATE);
+                        Long averageAnswerTime = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_AVERAGEANSWERTIME);
+
+                        averageAnswerTime = new BigDecimal(averageAnswerTime).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).longValue();
+
+                        AccuracyEntity ac = new AccuracyEntity();
+                        ac.setUserId(userId);
+                        ac.setSubmitTime(submitTimeDate);
+
+
+                        ac.setAverageAnswerTime(averageAnswerTime);
+                        ac.setCorrect(correct);
+                        ac.setError(error);
+                        ac.setSum(sum);
+                        ac.setAccuracy(accuracy);
+                        /**
+                         * 当前用户每个课件答题正确率
+                         */
+                        ac.setCourseCorrectAnalyze(courseCorrectAnalyze);
+
+                        acs.add(ac);
+                    }
+                });
+
+
+            }
+        });
     }
 
     private static void save2mysql(JavaDStream<Row> topicResultResult) {
@@ -212,7 +276,7 @@ public class RmqSparkStreaming {
                                 Long sum = ValueUtil.parseStr2Long(analyzeResult, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
                                 Double accuracy = ValueUtil.parseStr2Dou(analyzeResult, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ACCURACY);
                                 String submitTimeDate = ValueUtil.parseStr2Str(analyzeResult, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUBMITTIMEDATE);
-                                Long evaluationAnswerTime = ValueUtil.parseStr2Long(analyzeResult, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_EVALUATIONANSWERTIME);
+                                Long evaluationAnswerTime = ValueUtil.parseStr2Long(analyzeResult, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_AVERAGEANSWERTIME);
 
                                 evaluationAnswerTime = new BigDecimal(evaluationAnswerTime).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).longValue();
 
@@ -220,7 +284,7 @@ public class RmqSparkStreaming {
                                 ac.setUserId(userId);
                                 ac.setSubmitTime(submitTimeDate);
 
-                                ac.setEvaluationAnswerTime(evaluationAnswerTime);
+                                ac.setAverageAnswerTime(evaluationAnswerTime);
                                 ac.setCorrect(correct);
                                 ac.setError(error);
                                 ac.setSum(sum);
@@ -235,59 +299,6 @@ public class RmqSparkStreaming {
                         }
                     });
                 }
-            }
-        });
-    }
-
-    private static void save2hbase(JavaDStream<Row> topicResultResult) {
-        topicResultResult.foreachRDD(new VoidFunction<JavaRDD<Row>>() {
-            @Override
-            public void call(JavaRDD<Row> rowJavaRDD) throws Exception {
-
-                rowJavaRDD.coalesce(10).foreachPartition(new VoidFunction<Iterator<Row>>() {
-                    @Override
-                    public void call(Iterator<Row> rowIte) throws Exception {
-
-
-                        List<AccuracyEntity> acs = new ArrayList<>();
-                        while (rowIte.hasNext()) {
-
-                            Row rowRecord = rowIte.next();
-
-                            save2list(acs, rowRecord);
-                        }
-
-                        HBaseUtil.putAll2hbase(AccuracyEntity.HBASE_TABLE, acs);
-                    }
-
-                    private void save2list(List<AccuracyEntity> acs, Row rowRecord) {
-                        long userId = rowRecord.getLong(0);
-                        String analyzeResult = rowRecord.getString(1);
-
-                        Long correct = ValueUtil.parseStr2Long(analyzeResult, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
-                        Long error = ValueUtil.parseStr2Long(analyzeResult, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
-                        Long sum = ValueUtil.parseStr2Long(analyzeResult, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
-                        Double accuracy = ValueUtil.parseStr2Dou(analyzeResult, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ACCURACY);
-                        String submitTimeDate = ValueUtil.parseStr2Str(analyzeResult, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUBMITTIMEDATE);
-                        Long evaluationAnswerTime = ValueUtil.parseStr2Long(analyzeResult, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_EVALUATIONANSWERTIME);
-
-                        evaluationAnswerTime = new BigDecimal(evaluationAnswerTime).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).longValue();
-
-                        AccuracyEntity ac = new AccuracyEntity();
-                        ac.setUserId(userId);
-                        ac.setSubmitTime(submitTimeDate);
-
-                        ac.setEvaluationAnswerTime(evaluationAnswerTime);
-                        ac.setCorrect(correct);
-                        ac.setError(error);
-                        ac.setSum(sum);
-                        ac.setAccuracy(accuracy);
-
-                        acs.add(ac);
-                    }
-                });
-
-
             }
         });
     }
