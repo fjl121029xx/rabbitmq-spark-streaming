@@ -137,7 +137,7 @@ public class HBaseUtil {
         //HTablePool pool = new HTablePool(conf, 10);
         //HTable table = (HTable) pool.getTable("user");
         HTable table = new HTable(conf, "topic_record_accuracy_analyze");
-        Get get = new Get(Bytes.toBytes("10"));
+        Get get = new Get(Bytes.toBytes("99"));
         //get.addColumn(Bytes.toBytes("info"), Bytes.toBytes("name"));
         get.setMaxVersions(1);
         Result result = table.get(get);

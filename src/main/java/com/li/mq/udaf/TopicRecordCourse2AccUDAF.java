@@ -19,7 +19,6 @@ public class TopicRecordCourse2AccUDAF extends UserDefinedAggregateFunction {
 
         return DataTypes.createStructType(Arrays.asList(
                 DataTypes.createStructField("course_ware_id", DataTypes.LongType, true),
-                DataTypes.createStructField("questionId", DataTypes.LongType, true),
                 DataTypes.createStructField("correct", DataTypes.IntegerType, true)
         ));
     }
@@ -47,15 +46,14 @@ public class TopicRecordCourse2AccUDAF extends UserDefinedAggregateFunction {
     public void initialize(MutableAggregationBuffer buffer) {
 
         //courseWareId=0|questionIds=0|accuracy=0&&courseWareId=0|questionIds=0|correct=0|error=0|sum=0|accuracy=0
-        buffer.update(0, "courseWareId=0|questionIds=0|correct=0|error=0|sum=0|accuracy=0.00");
+        buffer.update(0, "courseWareId=0|correct=0|error=0|sum=0|accuracy=0.00");
     }
 
     @Override
     public void update(MutableAggregationBuffer buffer, Row input) {
 
         long courseWareIdRow = input.getLong(0);
-        long questionIdsRow = input.getLong(1);
-        int correctRow = input.getInt(2);
+        int correctRow = input.getInt(1);
 
         String courseCorrectAnalyzeInfo = buffer.getString(0);
 
@@ -67,23 +65,21 @@ public class TopicRecordCourse2AccUDAF extends UserDefinedAggregateFunction {
         StringBuilder sb = new StringBuilder();
 
         long courseWareId = 0L;
-        String questionIds = "";
         long correct = 0L;
         long error = 0L;
         long sum = 0L;
         double accuracy = 0.00;
         String str = "";
+
         for (int i = 0; i < courseCorrectAnalyzeInfoArr.length; i++) {
 
             str = courseCorrectAnalyzeInfoArr[i];
 
             courseWareId = ValueUtil.parseStr2Long(str, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_COURSEWAREID);
-            questionIds = ValueUtil.parseStr2Str(str, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_QUESTIONIDS);
 
             correct = ValueUtil.parseStr2Long(str, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
             error = ValueUtil.parseStr2Long(str, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
             sum = ValueUtil.parseStr2Long(str, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
-            accuracy = 0.00;
 
             if (courseWareIdRow == courseWareId) {
 
@@ -98,36 +94,34 @@ public class TopicRecordCourse2AccUDAF extends UserDefinedAggregateFunction {
                 accuracy = new BigDecimal(correct).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
 
 
-                if (!questionIds.contains(Long.toString(questionIdsRow))) {
-                    questionIds += "," + questionIdsRow;
-                }
+            }
+
+            if (courseWareId != 0) {
+
+                accuracy = new BigDecimal(correct).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
+                str = "courseWareId=" + courseWareId + "|" +
+                        "correct=" + correct + "|" +
+                        "error=" + error + "|" +
+                        "sum=" + sum + "|" +
+                        "accuracy=" + accuracy + "";
+                sb.append(str).append("&&");
             }
 
 
-            str = "courseWareId=" + courseWareId + "|" +
-                    "questionIds=" + questionIds + "|" +
-                    "correct=" + correct + "|" +
-                    "error=" + error + "|" +
-                    "sum=" + sum + "|" +
-                    "accuracy=" + accuracy + "";
-
-            sb.append(str).append("&&");
         }
 
         if (!notHave) {
             courseWareId = courseWareIdRow;
-            questionIds += questionIdsRow + ",";
 
-            if (correct == 1) {
+            if (correctRow == 1) {
                 correct++;
-            } else if (correct == 0) {
+            } else if (correctRow == 0) {
                 error++;
             }
             sum++;
             accuracy = new BigDecimal(correct).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
         }
         str = "courseWareId=" + courseWareId + "|" +
-                "questionIds=" + questionIds + "|" +
                 "correct=" + correct + "|" +
                 "error=" + error + "|" +
                 "sum=" + sum + "|" +
@@ -136,12 +130,13 @@ public class TopicRecordCourse2AccUDAF extends UserDefinedAggregateFunction {
         sb.append(str).append("&&");
 //        sb.replace(0,sb.indexOf("\\&\\&"),"");
 
+
         buffer.update(0, sb.toString());
     }
 
 
-    //courseWareId=0|questionIds=0|accuracy=0&&courseWareId=0|questionIds=0|correct=0|error=0|sum=0|accuracy=0&&
-    //courseWareId=0|questionIds=0|accuracy=0&&courseWareId=0|questionIds=0|correct=0|error=0|sum=0|accuracy=0
+    //courseWareId=0|accuracy=0&&courseWareId=0|questionIds=0|correct=0|error=0|sum=0|accuracy=0&&
+    //courseWareId=0|accuracy=0&&courseWareId=0|questionIds=0|correct=0|error=0|sum=0|accuracy=0
     @Override
     public void merge(MutableAggregationBuffer merger, Row row) {
 
@@ -194,14 +189,12 @@ public class TopicRecordCourse2AccUDAF extends UserDefinedAggregateFunction {
 
             String _courseCorrectAnalyzeInfo = mapMerger.get(id);
             long courseWareId = ValueUtil.parseStr2Long(_courseCorrectAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_COURSEWAREID);
-            String questionIds = ValueUtil.parseStr2Str(_courseCorrectAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_QUESTIONIDS);
             long correct = ValueUtil.parseStr2Long(_courseCorrectAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
             long error = ValueUtil.parseStr2Long(_courseCorrectAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
             long sum = ValueUtil.parseStr2Long(_courseCorrectAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
 
 
             String _courseCorrectAnalyzeInfoOther = mapRow.get(id);
-            String questionIdsOther = ValueUtil.parseStr2Str(_courseCorrectAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_QUESTIONIDS);
             long correctOther = ValueUtil.parseStr2Long(_courseCorrectAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
             long errorOther = ValueUtil.parseStr2Long(_courseCorrectAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
             long sumOther = ValueUtil.parseStr2Long(_courseCorrectAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
@@ -212,25 +205,9 @@ public class TopicRecordCourse2AccUDAF extends UserDefinedAggregateFunction {
 
             double accuracy = new BigDecimal(correct).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
 
-            List<String> qList = Arrays.asList(questionIds.split(","));
-            List<String> qOtherList = Arrays.asList(questionIdsOther.split(","));
-            qOtherList.removeAll(qList);
-            qList.addAll(qOtherList);
-            StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < qList.size(); i++) {
-                if (i != qList.size() - 1) {
-
-                    sb.append(qList.get(i)).append(",");
-                } else {
-                    sb.append(qList.get(i));
-                }
-
-            }
-            String newQuestionIds = sb.toString();
 
 
             upda.append("courseWareId=" + courseWareId + "|" +
-                    "questionIds=" + newQuestionIds + "|" +
                     "correct=" + correct + "|" +
                     "error=" + error + "|" +
                     "sum=" + sum + "|" +

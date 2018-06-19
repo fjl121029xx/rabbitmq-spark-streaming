@@ -169,7 +169,7 @@ public class RmqSparkStreaming {
                         "select " +
                         "userId ," +
                         "correctAnalyze(correct,submitTimeDate,time) as correctAnalyze," +
-                        "course2topic(courseware_id,questionId,correct) as courseCorrectAnalyze " +
+                        "course2topic(courseware_id,correct) as courseCorrectAnalyze " +
                         "from tb_topic_record " +
                         "group by userId");
 
