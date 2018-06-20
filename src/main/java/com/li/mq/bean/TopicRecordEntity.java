@@ -50,6 +50,11 @@ public class TopicRecordEntity {
     private Long courseWareId;
 
     /**
+     * 课件类型
+     */
+    private int courseWareType;
+
+    /**
      * 提交时间
      */
     private String submitTime;

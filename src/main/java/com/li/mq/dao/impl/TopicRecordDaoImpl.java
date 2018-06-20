@@ -13,7 +13,9 @@ public class TopicRecordDaoImpl implements ITopicRecordDao {
     @Override
     public void insertBatch(List<TopicRecordEntity> topicRecords) {
 
-        String sql = "insert into topic_record values(?,?,?,?,?,?,?,?)";
+        String sql = "replace into topic_record(user_id,question_id,time,correct,knowledge_point," +
+                "question_source,course_ware_id,submit_time,course_ware_type)" +
+                " values(?,?,?,?,?,?,?,?,?)";
 
         List<Object[]> paramsList = new ArrayList<>();
 
@@ -26,7 +28,8 @@ public class TopicRecordDaoImpl implements ITopicRecordDao {
                     tr.getKnowledgePoint(),
                     tr.getQuestionSource(),
                     tr.getCourseWareId(),
-                    tr.getSubmitTime()
+                    tr.getSubmitTime(),
+                    tr.getCourseWareType()
             };
 
             paramsList.add(params);

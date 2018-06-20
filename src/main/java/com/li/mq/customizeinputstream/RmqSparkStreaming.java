@@ -1,11 +1,14 @@
 package com.li.mq.customizeinputstream;
 
 import com.li.mq.bean.AccuracyEntity;
+import com.li.mq.bean.TopicRecordEntity;
 import com.li.mq.constants.TopicRecordConstant;
 import com.li.mq.dao.IAccuracyDao;
+import com.li.mq.dao.ITopicRecordDao;
 import com.li.mq.dao.factory.DaoFactory;
 import com.li.mq.udaf.TopicRecordAccuracyUDAF;
 import com.li.mq.udaf.TopicRecordCourse2AccUDAF;
+import com.li.mq.udaf.TopicRecordKnowPointUDAF;
 import com.li.mq.utils.HBaseUtil;
 import com.li.mq.utils.ValueUtil;
 import org.apache.spark.SparkConf;
@@ -113,7 +116,26 @@ public class RmqSparkStreaming {
             }
         });
 
-        JavaDStream<Row> topicResultResult = topicRecord.transform(new Function<JavaRDD<String>, JavaRDD<Row>>() {
+
+//        JavaDStream<Row> topicResultResultVerify = correctAnalyzeVerify(topicRecord);
+
+        JavaDStream<Row> topicResultResult = correctAnalyze(topicRecord);
+//
+        save2hbase(topicResultResult);
+
+//        save2mysql(topicResultResultVerify);
+
+        topicResultResult.print();
+
+        jsc.start();
+        jsc.awaitTermination();
+        jsc.close();
+
+
+    }
+
+    private static JavaDStream<Row> correctAnalyze(JavaDStream<String> topicRecord) {
+        return topicRecord.transform(new Function<JavaRDD<String>, JavaRDD<Row>>() {
             @Override
             public JavaRDD<Row> call(JavaRDD<String> rdd) throws Exception {
 
@@ -124,33 +146,51 @@ public class RmqSparkStreaming {
                         //用户id
                         Long userId = ValueUtil.parseStr2Long(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_USERID);
                         //课件id
-                        Long course_ware_id = ValueUtil.parseStr2Long(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_COURSEWAREID);
+                        Long courseWare_id = ValueUtil.parseStr2Long(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_COURSEWAREID);
+                        //课件类型
+                        Integer courseWare_type = ValueUtil.parseStr2Int(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_COURSEWARETYPE);
                         //试题Id
                         Long questionId = ValueUtil.parseStr2Long(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_QUESTIONID);
                         //做题时长
                         Long time = ValueUtil.parseStr2Long(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_TIME);
                         //是否正确
                         Integer correct = ValueUtil.parseStr2Int(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_CORRECT);
+                        //阶段
+                        Long step = ValueUtil.parseStr2Long(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_STEP);
+                        //科目
+                        Long subjectId = ValueUtil.parseStr2Long(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_SUBJECTID);
                         //所属知识点
-                        Long knowledgePoint = ValueUtil.parseStr2Long(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_KNOWLEDGEPOINT);
+                        String knowledgePoint = ValueUtil.parseStr2Str(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_KNOWLEDGEPOINT);
                         //视频来源
                         Integer questionSource = ValueUtil.parseStr2Int(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_QUESTIONSOURCE);
                         //提交时间
                         Long submitTime = ValueUtil.parseStr2Long(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_SUBMITTIME);
                         String submitTimeDate = sdfYMD.format(new Date(submitTime));
 
-                        return RowFactory.create(userId, course_ware_id, questionId, time, correct, knowledgePoint, questionSource, submitTimeDate);
-
+                        return RowFactory.create(userId,
+                                courseWare_id,
+                                courseWare_type,
+                                questionId,
+                                time,
+                                correct,
+                                step,
+                                subjectId,
+                                knowledgePoint,
+                                questionSource,
+                                submitTimeDate);
                     }
                 });
 
                 StructType schema = DataTypes.createStructType(Arrays.asList(
                         DataTypes.createStructField("userId", DataTypes.LongType, true),
-                        DataTypes.createStructField("courseware_id", DataTypes.LongType, true),
+                        DataTypes.createStructField("courseWare_id", DataTypes.LongType, true),
+                        DataTypes.createStructField("courseWare_type", DataTypes.IntegerType, true),
                         DataTypes.createStructField("questionId", DataTypes.LongType, true),
                         DataTypes.createStructField("time", DataTypes.LongType, true),
                         DataTypes.createStructField("correct", DataTypes.IntegerType, true),
-                        DataTypes.createStructField("knowledgePoint", DataTypes.LongType, true),
+                        DataTypes.createStructField("step", DataTypes.LongType, true),
+                        DataTypes.createStructField("subjectId", DataTypes.LongType, true),
+                        DataTypes.createStructField("knowledgePoint", DataTypes.StringType, true),
                         DataTypes.createStructField("questionSource", DataTypes.IntegerType, true),
                         DataTypes.createStructField("submitTimeDate", DataTypes.StringType, true)
                 ));
@@ -162,14 +202,17 @@ public class RmqSparkStreaming {
                 topicRecordDS.registerTempTable("tb_topic_record");
 
                 sqlContext.udf().register("correctAnalyze", new TopicRecordAccuracyUDAF());
-                sqlContext.udf().register("course2topic", new TopicRecordCourse2AccUDAF());
+                sqlContext.udf().register("courseWare2topic", new TopicRecordCourse2AccUDAF());
+                sqlContext.udf().register("knowledgePoint2topic", new TopicRecordKnowPointUDAF());
 
 
                 Dataset<Row> result = sqlContext.sql("" +
                         "select " +
                         "userId ," +
                         "correctAnalyze(correct,submitTimeDate,time) as correctAnalyze," +
-                        "course2topic(courseware_id,correct) as courseCorrectAnalyze " +
+                        "courseWare2topic(courseWare_id,courseWare_type,correct) as courseCorrectAnalyze, " +
+                        "knowledgePoint2topic(step,subjectId,knowledgePoint,correct) as knowledgePointCorrectAnalyze," +
+                        "count(*) " +
                         "from tb_topic_record " +
                         "group by userId");
 
@@ -177,29 +220,18 @@ public class RmqSparkStreaming {
                 return result.toJavaRDD();
             }
         });
-//
-        save2hbase(topicResultResult);
-
-//        save2mysql(topicResultResult);
-
-        topicResultResult.print();
-
-        jsc.start();
-        jsc.awaitTermination();
-        jsc.close();
-
-
     }
 
     private static void save2hbase(JavaDStream<Row> topicResultResult) {
+
         topicResultResult.foreachRDD(new VoidFunction<JavaRDD<Row>>() {
             @Override
             public void call(JavaRDD<Row> rowJavaRDD) throws Exception {
 
                 rowJavaRDD.coalesce(10).foreachPartition(new VoidFunction<Iterator<Row>>() {
+
                     @Override
                     public void call(Iterator<Row> rowIte) throws Exception {
-
 
                         List<AccuracyEntity> acs = new ArrayList<>();
                         while (rowIte.hasNext()) {
@@ -216,6 +248,8 @@ public class RmqSparkStreaming {
                         long userId = rowRecord.getLong(0);
                         String userCorrectAnalyze = rowRecord.getString(1);
                         String courseCorrectAnalyze = rowRecord.getString(2);
+                        String knowledgePointAnalyze = rowRecord.getString(3);
+                        long count = rowRecord.getLong(4);
 
 
                         Long correct = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
@@ -241,6 +275,14 @@ public class RmqSparkStreaming {
                          * 当前用户每个课件答题正确率
                          */
                         ac.setCourseCorrectAnalyze(courseCorrectAnalyze);
+                        /**
+                         * 当前用户每个知识点答题正确率
+                         */
+                        ac.setKnowledgePointCorrectAnalyze(knowledgePointAnalyze);
+                        /**
+                         * count
+                         */
+                        ac.setCount(count);
 
                         acs.add(ac);
                     }
@@ -258,43 +300,42 @@ public class RmqSparkStreaming {
 
                 if (rowJavaRDD.count() != 0) {
 
-                    rowJavaRDD.foreachPartition(new VoidFunction<Iterator<Row>>() {
+                    rowJavaRDD.coalesce(10).foreachPartition(new VoidFunction<Iterator<Row>>() {
 
                         @Override
                         public void call(Iterator<Row> rowIte) throws Exception {
 
-                            List<AccuracyEntity> acs = new ArrayList<>();
+                            List<TopicRecordEntity> trs = new ArrayList<>();
                             while (rowIte.hasNext()) {
 
                                 Row rowRecord = rowIte.next();
 
                                 long userId = rowRecord.getLong(0);
-                                String analyzeResult = rowRecord.getString(1);
+                                long courseWare_id = rowRecord.getLong(1);
+                                int courseWare_type = rowRecord.getInt(2);
+                                long questionId = rowRecord.getLong(3);
+                                long time = rowRecord.getLong(4);
+                                int correct = rowRecord.getInt(5);
+                                long knowledgePoint = rowRecord.getLong(6);
+                                int questionSource = rowRecord.getInt(7);
+                                String submitTimeDate = rowRecord.getString(8);
 
-                                Long correct = ValueUtil.parseStr2Long(analyzeResult, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
-                                Long error = ValueUtil.parseStr2Long(analyzeResult, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
-                                Long sum = ValueUtil.parseStr2Long(analyzeResult, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
-                                Double accuracy = ValueUtil.parseStr2Dou(analyzeResult, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ACCURACY);
-                                String submitTimeDate = ValueUtil.parseStr2Str(analyzeResult, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUBMITTIMEDATE);
-                                Long evaluationAnswerTime = ValueUtil.parseStr2Long(analyzeResult, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_AVERAGEANSWERTIME);
+                                TopicRecordEntity tr = new TopicRecordEntity();
+                                tr.setUserId(userId);
+                                tr.setCourseWareId(courseWare_id);
+                                tr.setCourseWareType(courseWare_type);
+                                tr.setQuestionId(questionId);
+                                tr.setTime(time);
+                                tr.setCorrect(correct);
+                                tr.setKnowledgePoint(knowledgePoint);
+                                tr.setQuestionSource(questionSource);
+                                tr.setSubmitTime(submitTimeDate);
 
-                                evaluationAnswerTime = new BigDecimal(evaluationAnswerTime).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).longValue();
-
-                                AccuracyEntity ac = new AccuracyEntity();
-                                ac.setUserId(userId);
-                                ac.setSubmitTime(submitTimeDate);
-
-                                ac.setAverageAnswerTime(evaluationAnswerTime);
-                                ac.setCorrect(correct);
-                                ac.setError(error);
-                                ac.setSum(sum);
-                                ac.setAccuracy(accuracy);
-
-                                acs.add(ac);
+                                trs.add(tr);
                             }
 
-                            IAccuracyDao accuracyDao = DaoFactory.getIAccuracyDao();
-                            accuracyDao.insertBatch(acs);
+                            ITopicRecordDao topicRecordDao = DaoFactory.getITopicRecordDao();
+                            topicRecordDao.insertBatch(trs);
 
                         }
                     });

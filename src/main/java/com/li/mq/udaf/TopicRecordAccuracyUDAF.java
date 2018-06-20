@@ -65,25 +65,27 @@ public class TopicRecordAccuracyUDAF extends UserDefinedAggregateFunction {
 
         Integer correctLast = ValueUtil.parseStr2Int(last, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
         Integer errorLast = ValueUtil.parseStr2Int(last, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
-        Integer sumtLast = ValueUtil.parseStr2Int(last, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
+        Integer sumLast = ValueUtil.parseStr2Int(last, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
         Long evaluationAnswerTime = ValueUtil.parseStr2Long(last, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_AVERAGEANSWERTIME);
 
 
-        sumtLast++;
+        sumLast++;
 
         if (correct == 0) {
+
             correctLast++;
         } else if (correct == 1) {
+
             errorLast++;
         }
 
         evaluationAnswerTime += time;
-        double accuracy = new BigDecimal(correctLast).divide(new BigDecimal(sumtLast), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
+        double accuracy = new BigDecimal(correctLast).divide(new BigDecimal(sumLast), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
 
 
         buffer.update(0, "correct=" + correctLast +
                 "|error=" + errorLast +
-                "|sum=" + sumtLast +
+                "|sum=" + sumLast +
                 "|accuracy=" + accuracy +
                 "|submitTimeDate=" + submitTimeDate +
                 "|averageAnswerTime=" + evaluationAnswerTime);

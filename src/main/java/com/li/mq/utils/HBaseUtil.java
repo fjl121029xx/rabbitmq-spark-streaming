@@ -2,26 +2,15 @@ package com.li.mq.utils;
 
 import com.li.mq.bean.AccuracyEntity;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.HBaseConfiguration;
-import org.apache.hadoop.hbase.HColumnDescriptor;
-import org.apache.hadoop.hbase.HTableDescriptor;
-import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.client.Delete;
-import org.apache.hadoop.hbase.client.Get;
-import org.apache.hadoop.hbase.client.HBaseAdmin;
-import org.apache.hadoop.hbase.client.HTable;
-import org.apache.hadoop.hbase.client.HTableInterface;
-import org.apache.hadoop.hbase.client.HTablePool;
-import org.apache.hadoop.hbase.client.Put;
-import org.apache.hadoop.hbase.client.Result;
-import org.apache.hadoop.hbase.client.ResultScanner;
-import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.*;
+import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import org.junit.Before;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -87,28 +76,36 @@ public class HBaseUtil {
         table.close();
     }
 
-//    public static void main(String[] args) throws Exception {
-//
-//        Configuration conf = HBaseConfiguration.create();
-//        conf.set("hbase.zookeeper.quorum", "192.168.65.130");
-//        conf.set("hbase.zookeeper.property.clientPort", "2181");
-//        conf.set("hbase.rootdir", "hdfs://192.168.65.130:9000/hbase");
-//
-//        HBaseAdmin admin = new HBaseAdmin(conf);
-//        HTableDescriptor table = new HTableDescriptor("topic_record_accuracy_analyze");
-//
-//        HColumnDescriptor columnFamily = new HColumnDescriptor("accuracy_result");
-//        columnFamily.setMaxVersions(10);
-//        table.addFamily(columnFamily);
-//
-//        HColumnDescriptor columnFamily2 = new HColumnDescriptor("courseware_correct_analyze");
-//        columnFamily2.setMaxVersions(10);
-//        table.addFamily(columnFamily2);
-//
-//        admin.createTable(table);
-//        admin.close();
-//
-//    }
+    public static void main(String[] args) throws Exception {
+
+        Configuration conf = HBaseConfiguration.create();
+        conf.set("hbase.zookeeper.quorum", "192.168.65.130");
+        conf.set("hbase.zookeeper.property.clientPort", "2181");
+        conf.set("hbase.rootdir", "hdfs://192.168.65.130:9000/hbase");
+
+        HBaseAdmin admin = new HBaseAdmin(conf);
+        HTableDescriptor table = new HTableDescriptor("topic_record_accuracy_analyze");
+
+        HColumnDescriptor columnFamily = new HColumnDescriptor("accuracy_result");
+        columnFamily.setMaxVersions(10);
+        table.addFamily(columnFamily);
+
+        HColumnDescriptor columnFamily2 = new HColumnDescriptor("courseware_correct_analyze");
+        columnFamily2.setMaxVersions(10);
+        table.addFamily(columnFamily2);
+
+        HColumnDescriptor columnFamily3 = new HColumnDescriptor("knowledgePoint_correct_analyze");
+        columnFamily2.setMaxVersions(10);
+        table.addFamily(columnFamily3);
+
+        HColumnDescriptor columnFamily4 = new HColumnDescriptor("other");
+        columnFamily2.setMaxVersions(10);
+        table.addFamily(columnFamily4);
+
+        admin.createTable(table);
+        admin.close();
+
+    }
 
 
     @Test
@@ -133,23 +130,45 @@ public class HBaseUtil {
 
     @Test
     public void testGet() throws Exception {
-
         //HTablePool pool = new HTablePool(conf, 10);
         //HTable table = (HTable) pool.getTable("user");
         HTable table = new HTable(conf, "topic_record_accuracy_analyze");
-        Get get = new Get(Bytes.toBytes("99"));
+        Get get = new Get(Bytes.toBytes("8"));
         //get.addColumn(Bytes.toBytes("info"), Bytes.toBytes("name"));
         get.setMaxVersions(1);
         Result result = table.get(get);
         //result.getValue(family, qualifier)
-        for (KeyValue kv : result.list()) {
-            String family = new String(kv.getFamily());
-            String qualifier = new String(kv.getQualifier());
-            System.out.println(family + ":" + qualifier + ":" + new String(kv.getValue()));
+
+
+        List<Cell> cells = result.listCells();
+        for (Cell c : cells) {
+            byte[] familyArray = c.getQualifier();
+            System.out.println(new String(familyArray) + "=" + new String(c.getValue()));
         }
+
         table.close();
     }
 
+    /**
+     * @param clazz   转换对象class
+     * @param version 查询最多多少版本
+     * @param result  hbase查询结果
+     * @param ismult  是否返回集合
+     * @return
+     */
+    private void hbase2Object(Class clazz, int version, Result result, boolean ismult) {
+
+        Field[] declaredFields = clazz.getDeclaredFields();
+
+        List<Cell> cells = result.listCells();
+        for (Cell c : cells) {
+            byte[] familyArray = c.getQualifier();
+            System.out.println(new String(familyArray));
+        }
+
+
+//        return null;
+    }
 
     public static void putAll2hbase(String table, List<AccuracyEntity> accuracyList) {
 
@@ -168,7 +187,9 @@ public class HBaseUtil {
                         ac.getAccuracy().toString(),
                         ac.getSubmitTime(),
                         ac.getAverageAnswerTime().toString(),
-                        ac.getCourseCorrectAnalyze()
+                        ac.getCourseCorrectAnalyze(),
+                        ac.getKnowledgePointCorrectAnalyze(),
+                        ac.getCount().toString()
 
                 };
 
@@ -213,9 +234,26 @@ public class HBaseUtil {
                         Bytes.toBytes(AccuracyEntity.HBASE_TABLE_COLUMN_AVERAGEANSWERTIME),
                         Bytes.toBytes(columns[6]));
 
+                /**
+                 * 课件答题正确率
+                 */
                 put.addColumn(Bytes.toBytes(AccuracyEntity.HBASE_TABLE_FAMILY_COLUMNS2),
                         Bytes.toBytes(AccuracyEntity.HBASE_TABLE_COLUMN_COURSEWARECORRECTANALYZE),
                         Bytes.toBytes(columns[7]));
+
+                /**
+                 * 知识点答题正确率
+                 */
+                put.addColumn(Bytes.toBytes(AccuracyEntity.HBASE_TABLE_FAMILY_COLUMNS3),
+                        Bytes.toBytes(AccuracyEntity.HBASE_TABLE_COLUMN_KNOWLEDGEPOINTCORRECTANALYZE),
+                        Bytes.toBytes(columns[8]));
+
+                /**
+                 * 知识点答题正确率
+                 */
+                put.addColumn(Bytes.toBytes(AccuracyEntity.HBASE_TABLE_FAMILY_COLUMNS4),
+                        Bytes.toBytes(AccuracyEntity.HBASE_TABLE_COLUMN_COUNT),
+                        Bytes.toBytes(columns[9]));
 
 
                 puts.add(put);
@@ -230,9 +268,10 @@ public class HBaseUtil {
         }
     }
 
-    public static void main(String[] args) {
+//    public static void main(String[] args) {
+//
+//        System.out.println(AccuracyEntity.class.getDeclaredFields().length);
+//    }
 
-        System.out.println(AccuracyEntity.class.getDeclaredFields().length);
-    }
 
 }

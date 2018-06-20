@@ -1,5 +1,8 @@
 package com.li.mq.constants;
 
+/**
+ * 接口字段常量
+ */
 public class TopicRecordConstant {
 
     /**
@@ -23,9 +26,24 @@ public class TopicRecordConstant {
     public static final String SSTREAM_TOPIC_RECORD_FIELD_CORRECT = "correct";
 
     /**
-     * knowledgePoint   所属知识点
+     * 阶段
+     */
+    public static final String SSTREAM_TOPIC_RECORD_FIELD_STEP = "step";
+
+    /**
+     * subject_id
+     */
+    public static final String SSTREAM_TOPIC_RECORD_FIELD_SUBJECTID = "subjectId";
+
+    /**
+     * knowledgePoint   知识点id，逗号分隔	//1,2,3 一级知识点，二级知识点，三机知识点
      */
     public static final String SSTREAM_TOPIC_RECORD_FIELD_KNOWLEDGEPOINT = "knowledgePoint";
+
+    /**
+     * knowledgeLevel   知识点等级   			//查询用
+     */
+    public static final String SSTREAM_TOPIC_RECORD_FIELD_KNOWLEDGELEVEL = "knowledgeLevel";
 
     /**
      * questionSource   视频来源		课后题：1，课中题：2
@@ -33,9 +51,13 @@ public class TopicRecordConstant {
     public static final String SSTREAM_TOPIC_RECORD_FIELD_QUESTIONSOURCE = "questionSource";
 
     /**
-     * course_ware_id   课件id
+     * courseWareId   课件id
      */
     public static final String SSTREAM_TOPIC_RECORD_FIELD_COURSEWAREID = "courseWareId";
+    /**
+     * courseWareType   课件类型
+     */
+    public static final String SSTREAM_TOPIC_RECORD_FIELD_COURSEWARETYPE = "courseWareType";
 
     /**
      * submitTime   提交时间
@@ -81,6 +103,11 @@ public class TopicRecordConstant {
      * udaf param  questionIds
      */
     public static final String SSTREAM_TOPIC_RECORD_UDAF_QUESTIONIDS = "questionIds";
+
+    /**
+     * udaf param  knowledgePoint
+     */
+    public static final String SSTREAM_TOPIC_RECORD_UDAF_KNOWLEDGEPOINT = "knowledgePoint";
 
 
 }

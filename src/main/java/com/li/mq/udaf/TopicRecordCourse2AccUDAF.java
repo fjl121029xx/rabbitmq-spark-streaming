@@ -18,7 +18,8 @@ public class TopicRecordCourse2AccUDAF extends UserDefinedAggregateFunction {
     public StructType inputSchema() {
 
         return DataTypes.createStructType(Arrays.asList(
-                DataTypes.createStructField("course_ware_id", DataTypes.LongType, true),
+                DataTypes.createStructField("courseWare_id", DataTypes.LongType, true),
+                DataTypes.createStructField("courseWare_type", DataTypes.IntegerType, true),
                 DataTypes.createStructField("correct", DataTypes.IntegerType, true)
         ));
     }
@@ -45,26 +46,26 @@ public class TopicRecordCourse2AccUDAF extends UserDefinedAggregateFunction {
     @Override
     public void initialize(MutableAggregationBuffer buffer) {
 
-        //courseWareId=0|questionIds=0|accuracy=0&&courseWareId=0|questionIds=0|correct=0|error=0|sum=0|accuracy=0
-        buffer.update(0, "courseWareId=0|correct=0|error=0|sum=0|accuracy=0.00");
+        //courseWareId=0|correct=0|error=0|sum=0|accuracy=0
+        buffer.update(0, "courseWareId=0_1|correct=0|error=0|sum=0|accuracy=0.00");
     }
 
     @Override
     public void update(MutableAggregationBuffer buffer, Row input) {
 
         long courseWareIdRow = input.getLong(0);
-        int correctRow = input.getInt(1);
+        Integer courseWareTypeRow = input.getInt(1);
+        int correctRow = input.getInt(2);
 
         String courseCorrectAnalyzeInfo = buffer.getString(0);
 
         String[] courseCorrectAnalyzeInfoArr = courseCorrectAnalyzeInfo.split("\\&\\&");
 
-
         boolean notHave = false;
 
         StringBuilder sb = new StringBuilder();
 
-        long courseWareId = 0L;
+        String courseWareId = "";
         long correct = 0L;
         long error = 0L;
         long sum = 0L;
@@ -74,14 +75,14 @@ public class TopicRecordCourse2AccUDAF extends UserDefinedAggregateFunction {
         for (int i = 0; i < courseCorrectAnalyzeInfoArr.length; i++) {
 
             str = courseCorrectAnalyzeInfoArr[i];
-
-            courseWareId = ValueUtil.parseStr2Long(str, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_COURSEWAREID);
+            //courseWareId=0_1
+            courseWareId = ValueUtil.parseStr2Str(str, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_COURSEWAREID);
 
             correct = ValueUtil.parseStr2Long(str, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
             error = ValueUtil.parseStr2Long(str, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
             sum = ValueUtil.parseStr2Long(str, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
 
-            if (courseWareIdRow == courseWareId) {
+            if (courseWareId.equals(courseWareIdRow + "_" + courseWareTypeRow.toString())) {
 
                 notHave = true;
 
@@ -96,9 +97,10 @@ public class TopicRecordCourse2AccUDAF extends UserDefinedAggregateFunction {
 
             }
 
-            if (courseWareId != 0) {
+            if (!courseWareId.startsWith("0_")) {
 
                 accuracy = new BigDecimal(correct).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
+
                 str = "courseWareId=" + courseWareId + "|" +
                         "correct=" + correct + "|" +
                         "error=" + error + "|" +
@@ -111,14 +113,18 @@ public class TopicRecordCourse2AccUDAF extends UserDefinedAggregateFunction {
         }
 
         if (!notHave) {
-            courseWareId = courseWareIdRow;
+            courseWareId = courseWareIdRow + "_" + courseWareTypeRow.toString();
 
             if (correctRow == 1) {
-                correct++;
+
+                correct = 1;
+                error = 0;
             } else if (correctRow == 0) {
-                error++;
+
+                correct = 0;
+                error = 1;
             }
-            sum++;
+            sum = 1;
             accuracy = new BigDecimal(correct).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
         }
         str = "courseWareId=" + courseWareId + "|" +
@@ -142,38 +148,38 @@ public class TopicRecordCourse2AccUDAF extends UserDefinedAggregateFunction {
 
 
         String courseCorrectAnalyzeInfo = merger.getString(0);
-        Map<Long, String> mapMerger = new HashMap<>();
+        Map<String, String> mapMerger = new HashMap<>();
         String[] cca1 = courseCorrectAnalyzeInfo.split("\\&\\&");
         for (String s : cca1) {//大聚合
 
-            long courseWareId = ValueUtil.parseStr2Long(s, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_COURSEWAREID);
-            if (courseWareId == 0) {
+            String courseWareId = ValueUtil.parseStr2Str(s, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_COURSEWAREID);
+            if (courseWareId.startsWith("0_")) {
                 continue;
             }
             mapMerger.put(courseWareId, s);
         }
 
         String courseCorrectAnalyzeInfoOther = row.getString(0);
-        Map<Long, String> mapRow = new HashMap<>();
+        Map<String, String> mapRow = new HashMap<>();
         String[] cca2 = courseCorrectAnalyzeInfoOther.split("\\&\\&");
         for (String s2 : cca2) {
-            long courseWareId = ValueUtil.parseStr2Long(s2, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_COURSEWAREID);
-            if (courseWareId == 0) {
+            String courseWareId = ValueUtil.parseStr2Str(s2, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_COURSEWAREID);
+            if (courseWareId.startsWith("0_")) {
                 continue;
             }
             mapMerger.put(courseWareId, s2);
         }
 
 
-        Set<Long> courseWareIdsMerge = mapMerger.keySet();
-        Set<Long> courseWareIdsRow = mapRow.keySet();
+        Set<String> courseWareIdsMerge = mapMerger.keySet();
+        Set<String> courseWareIdsRow = mapRow.keySet();
 
-        Set<Long> commonSet = new HashSet<>();
-        Set<Long> tmp2 = new HashSet<>();
-        Set<Long> mergeHaveSet = new HashSet<>();
-        Set<Long> tmp4 = new HashSet<>();
-        Set<Long> tmp5 = new HashSet<>();
-        Set<Long> rowHaveSet = new HashSet<>();
+        Set<String> commonSet = new HashSet<>();
+        Set<String> tmp2 = new HashSet<>();
+        Set<String> mergeHaveSet = new HashSet<>();
+        Set<String> tmp4 = new HashSet<>();
+        Set<String> tmp5 = new HashSet<>();
+        Set<String> rowHaveSet = new HashSet<>();
 
         //找出都有的
 
@@ -185,7 +191,7 @@ public class TopicRecordCourse2AccUDAF extends UserDefinedAggregateFunction {
 
         StringBuilder upda = new StringBuilder();
 
-        for (Long id : commonSet) {
+        for (String id : commonSet) {
 
             String _courseCorrectAnalyzeInfo = mapMerger.get(id);
             long courseWareId = ValueUtil.parseStr2Long(_courseCorrectAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_COURSEWAREID);
@@ -206,7 +212,6 @@ public class TopicRecordCourse2AccUDAF extends UserDefinedAggregateFunction {
             double accuracy = new BigDecimal(correct).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
 
 
-
             upda.append("courseWareId=" + courseWareId + "|" +
                     "correct=" + correct + "|" +
                     "error=" + error + "|" +
@@ -219,7 +224,7 @@ public class TopicRecordCourse2AccUDAF extends UserDefinedAggregateFunction {
         mergeHaveSet = courseWareIdsMerge;
         tmp4 = courseWareIdsRow;
         mergeHaveSet.removeAll(tmp4);
-        for (Long id : mergeHaveSet) {
+        for (String id : mergeHaveSet) {
             upda.append(mapMerger.get(id)).append("&&");
 
         }
@@ -227,7 +232,7 @@ public class TopicRecordCourse2AccUDAF extends UserDefinedAggregateFunction {
         tmp5 = courseWareIdsMerge;
         rowHaveSet = courseWareIdsRow;
         rowHaveSet.removeAll(tmp5);
-        for (Long id : rowHaveSet) {
+        for (String id : rowHaveSet) {
             upda.append(mapRow.get(id)).append("&&");
         }
 

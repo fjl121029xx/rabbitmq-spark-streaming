@@ -63,6 +63,7 @@ public class RabbitmqReceiver extends Receiver<String> {
                                        AMQP.BasicProperties properties, byte[] body)
                     throws IOException {
                 String message = new String(body, "UTF-8");
+                System.out.println("receiver message : => " + message);
                 store(message);
             }
         };
