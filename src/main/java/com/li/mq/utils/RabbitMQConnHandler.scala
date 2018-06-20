@@ -63,7 +63,7 @@ class RabbitMQConnHandler(var host: String) {
   def getQueueDeclareChannel(
                               queueName: String) = {
     val channel = connection.createChannel();
-    channel.queueDeclare(queueName, true, false, false, null);
+    channel.queueDeclare(queueName, false, false, false, null);
     channel.basicQos(1); //公平调度，如果多个消费者消费这个队列，尽量公平发消息，就设置这个
     channel
   }

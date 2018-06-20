@@ -16,7 +16,7 @@ object ProducerTest {
     val port = 5672
     val username = "admin"
     val passw = "admin"
-    val exchangeName = "test"
+    val exchangeName = "rabbitMQ.test"
 
     val mqHandler = new RabbitMQConnHandler(host, port, username, passw)
     val sendChannel = mqHandler.getQueueDeclareChannel(exchangeName)
