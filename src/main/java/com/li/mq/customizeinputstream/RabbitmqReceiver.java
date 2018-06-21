@@ -1,8 +1,10 @@
 package com.li.mq.customizeinputstream;
 
+import com.li.mq.bean.TopicRecordEntity;
 import com.rabbitmq.client.*;
 import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.streaming.receiver.Receiver;
+import com.alibaba.fastjson.JSONObject;
 
 import java.io.IOException;
 
@@ -63,10 +65,12 @@ public class RabbitmqReceiver extends Receiver<String> {
                                        AMQP.BasicProperties properties, byte[] body)
                     throws IOException {
                 String message = new String(body, "UTF-8");
-                System.out.println("receiver message : => " + message);
-                store(message);
+                TopicRecordEntity tr = JSONObject.parseObject(message, TopicRecordEntity.class);
+                System.out.println("receiver message : => " + tr.toString());
+                store(tr.toString());
             }
         };
+
 
         //自动回复队列应答 -- RabbitMQ中的消息确认机制
         channel.basicConsume(QUEUE_NAME, true, consumer);

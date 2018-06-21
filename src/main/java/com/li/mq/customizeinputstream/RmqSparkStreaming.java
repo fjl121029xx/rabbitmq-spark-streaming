@@ -316,7 +316,7 @@ public class RmqSparkStreaming {
                                 long questionId = rowRecord.getLong(3);
                                 long time = rowRecord.getLong(4);
                                 int correct = rowRecord.getInt(5);
-                                long knowledgePoint = rowRecord.getLong(6);
+                                String knowledgePoint = rowRecord.getString(6);
                                 int questionSource = rowRecord.getInt(7);
                                 String submitTimeDate = rowRecord.getString(8);
 
@@ -329,7 +329,7 @@ public class RmqSparkStreaming {
                                 tr.setCorrect(correct);
                                 tr.setKnowledgePoint(knowledgePoint);
                                 tr.setQuestionSource(questionSource);
-                                tr.setSubmitTime(submitTimeDate);
+                                tr.setSubmitTimeDate(submitTimeDate);
 
                                 trs.add(tr);
                             }

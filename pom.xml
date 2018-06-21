@@ -149,33 +149,20 @@
             <version>${rabbitmq.version}</version>
         </dependency>
 
-
-        <!--<dependency>-->
-        <!--<groupId>log4j</groupId>-->
-        <!--<artifactId>log4j</artifactId>-->
-        <!--</dependency>-->
-
-        <!--<dependency>-->
-        <!--<groupId>org.apache.flume</groupId>-->
-        <!--<artifactId>flume-ng-sdk</artifactId>-->
-        <!--</dependency>-->
-
-        <!--&lt;!&ndash; pull in flume core only for unit tests. TODO: not ideal &ndash;&gt;-->
-        <!--<dependency>-->
-        <!--<groupId>org.apache.flume</groupId>-->
-        <!--<artifactId>flume-ng-core</artifactId>-->
-        <!--<scope>test</scope>-->
-        <!--</dependency>-->
-
-        <!--<dependency>-->
-        <!--<groupId>org.apache.flume</groupId>-->
-        <!--<artifactId>flume-ng-configuration</artifactId>-->
-        <!--<scope>test</scope>-->
-        <!--</dependency>-->
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>fastjson</artifactId>
+            <version>1.2.47</version>
+        </dependency>
+        <dependency>
+            <groupId>org.json4s</groupId>
+            <artifactId>json4s-jackson_2.10</artifactId>
+            <version>3.2.10</version>
+        </dependency>
     </dependencies>
 
     <build>
-        <finalName>myspark</finalName>
+        <finalName>topicrecord-rabssm</finalName>
         <sourceDirectory>src/main/java</sourceDirectory>
         <testSourceDirectory>src/test/java</testSourceDirectory>
         <plugins>

@@ -1,9 +1,14 @@
 package scala.ss
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.li.mq.utils.{RabbitMQConnHandler, RabbitMQConsumer}
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.receiver.Receiver
+
+import scala.scalautils.TopicRecord
+
 
 class RabbitmqReceiver(
                         ssm: StreamingContext,
@@ -16,8 +21,12 @@ class RabbitmqReceiver(
   private var mqThread: Unit = null;
   private val exchangeName = "rabbitMQ.test"
 
+  val mapper = new ObjectMapper()
+
+
   override def onStart(): Unit = {
 
+    mapper.registerModule(DefaultScalaModule)
     mqThread = new Thread(new Runnable {
       override def run(): Unit = {
 
@@ -42,7 +51,10 @@ class RabbitmqReceiver(
       if (r.isRight) {
         val (msg, deliveryTag) = r.right.get
         if (deliveryTag > 0) {
-          store(msg)
+
+          val obj = mapper.readValue(msg, classOf[TopicRecord])
+          println(obj.toString)
+          store(obj.toString)
 
           consumer.basicAck(deliveryTag)
         } else {

@@ -2,11 +2,13 @@ package scala.ss
 
 import org.apache.spark.SparkConf
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.types.DataTypes
+import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
 import org.apache.spark.sql.{RowFactory, SQLContext}
 import org.apache.spark.streaming.{Durations, StreamingContext}
 
-import scala.scalautils.{TopicRecord, ValueUtil}
+import scala.scalautils.ValueScalaUtil
+
+
 
 object TopicRecordCorrectAnalyze {
 
@@ -54,48 +56,47 @@ object TopicRecordCorrectAnalyze {
       })
 
 
-    userInfos.transform((from: RDD[String]) => {
+    val userInfoRows = userInfos.transform((from: RDD[String]) => {
 
-      val userInfoRow = from.map(info => {
-        RowFactory.create(ValueUtil.parseVal2Long(info, "userId"),
-          ValueUtil.parseVal2Long(info, "questionId"),
-          ValueUtil.parseVal2Int(info, "correct"),
-          ValueUtil.parseVal2Long(info, "time"),
-          ValueUtil.parseVal2Int(info, "questionSource"),
-          ValueUtil.parseVal2Long(info, "courseWareId"),
-          ValueUtil.parseVal2Int(info, "courseWareType"),
-          ValueUtil.parseVal2Long(info, "step"),
-          ValueUtil.parseVal2Long(info, "subject_id"),
-          ValueUtil.parseVal2Str(info, "knowledgePoint"),
-          ValueUtil.parseVal2Date(info, "submitTimeDate"))
+      val userInfoRow = from.map((info: String) => {
+
+        RowFactory.create(
+          ValueScalaUtil.parseVal2Str(info, "userId"),
+          ValueScalaUtil.parseVal2Str(info, "questionId"),
+          ValueScalaUtil.parseVal2Str(info, "correct"),
+          ValueScalaUtil.parseVal2Str(info, "time"),
+          ValueScalaUtil.parseVal2Str(info, "questionSource"),
+          ValueScalaUtil.parseVal2Str(info, "courseWareId"),
+          ValueScalaUtil.parseVal2Str(info, "courseWareType"),
+          ValueScalaUtil.parseVal2Str(info, "step"),
+          ValueScalaUtil.parseVal2Str(info, "subjectId"),
+          ValueScalaUtil.parseVal2Str(info, "knowledgePoint"),
+          ValueScalaUtil.parseVal2Date(info, "submitTime"))
       })
 
-      val schema = DataTypes.createStructType(Array(
-        DataTypes.createStructField("userId", DataTypes.LongType, true),
-        DataTypes.createStructField("questionId", DataTypes.LongType, true),
-        DataTypes.createStructField("correct", DataTypes.IntegerType, true),
-        DataTypes.createStructField("time", DataTypes.LongType, true),
-        DataTypes.createStructField("questionSource", DataTypes.LongType, true),
-        DataTypes.createStructField("courseWareId", DataTypes.LongType, true),
-        DataTypes.createStructField("courseWareType", DataTypes.LongType, true),
-        DataTypes.createStructField("step", DataTypes.LongType, true),
-        DataTypes.createStructField("subject_id", DataTypes.LongType, true),
-        DataTypes.createStructField("knowledgePoint", DataTypes.StringType, true),
-        DataTypes.createStructField("submitTimeDate", DataTypes.StringType, true)
+      val schema = StructType(Array(
+        StructField("userId", DataTypes.StringType, true),
+        StructField("questionId", DataTypes.StringType, true),
+        StructField("correct", DataTypes.StringType, true),
+        StructField("time", DataTypes.StringType, true),
+        StructField("questionSource", DataTypes.StringType, true),
+        StructField("courseWareId", DataTypes.StringType, true),
+        StructField("courseWareType", DataTypes.StringType, true),
+        StructField("step", DataTypes.StringType, true),
+        StructField("subjectId", DataTypes.StringType, true),
+        StructField("knowledgePoint", DataTypes.StringType, true),
+        StructField("submitTimeDate", DataTypes.StringType, true)
       ))
 
       val sqlContext = new SQLContext(from.context)
 
       val userInfodf = sqlContext.createDataFrame(userInfoRow, schema)
-      userInfodf.registerTempTable("tb_topic_record")
+      userInfodf.createOrReplaceTempView("tb_topic_record")
 
-      sqlContext.sql("select " +
-        "userId,questionId,correct," +
-        "time,questionSource,courseWareId," +
-        "courseWareType,step,subject_id,knowledgePoint,submitTimeDate from tb_topic_record where userId = 78").rdd
+      userInfodf.rdd
     })
 
-    userInfos.print()
+    userInfoRows.print()
 
     ssc.start()
     ssc.awaitTermination()

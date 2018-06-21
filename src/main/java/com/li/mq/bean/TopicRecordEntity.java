@@ -6,10 +6,10 @@ import lombok.*;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Data
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @Getter
 @Setter
+@ToString
 public class TopicRecordEntity {
 
     /**
@@ -36,7 +36,7 @@ public class TopicRecordEntity {
     /**
      * 所属知识点
      */
-    private Long knowledgePoint;
+    private String knowledgePoint;
 
     /**
      * 视频来源（课中题，课后题）
@@ -57,6 +57,37 @@ public class TopicRecordEntity {
     /**
      * 提交时间
      */
-    private String submitTime;
+    private Long submitTime;
 
+    /**
+     * 提交时间 yyyy-MM-dd
+     */
+    private String submitTimeDate;
+
+    /**
+     * 科目
+     */
+    private Long subjectId;
+
+    /**
+     * 阶段
+     */
+    private Long step;
+
+
+    @Override
+    public String toString() {
+        return "" +
+                "questionId=" + questionId +
+                "|userId=" + userId +
+                "|time=" + time +
+                "|correct=" + correct +
+                "|knowledgePoint='" + knowledgePoint + '\'' +
+                "|questionSource=" + questionSource +
+                "|courseWareId=" + courseWareId +
+                "|courseWareType=" + courseWareType +
+                "|submitTime=" + submitTime +
+                "|subjectId=" + subjectId +
+                "|step=" + step;
+    }
 }

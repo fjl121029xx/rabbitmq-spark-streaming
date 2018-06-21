@@ -28,7 +28,7 @@ public class TopicRecordDaoImpl implements ITopicRecordDao {
                     tr.getKnowledgePoint(),
                     tr.getQuestionSource(),
                     tr.getCourseWareId(),
-                    tr.getSubmitTime(),
+                    tr.getSubmitTimeDate(),
                     tr.getCourseWareType()
             };
 
