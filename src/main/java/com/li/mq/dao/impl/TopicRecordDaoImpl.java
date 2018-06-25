@@ -1,6 +1,6 @@
 package com.li.mq.dao.impl;
 
-import com.li.mq.bean.TopicRecordEntity;
+import com.li.mq.bean.TopicRecordBean;
 import com.li.mq.jdbc.JDBCHelper;
 import com.li.mq.dao.ITopicRecordDao;
 
@@ -11,7 +11,7 @@ public class TopicRecordDaoImpl implements ITopicRecordDao {
 
 
     @Override
-    public void insertBatch(List<TopicRecordEntity> topicRecords) {
+    public void insertBatch(List<TopicRecordBean> topicRecords) {
 
         String sql = "replace into topic_record(user_id,question_id,time,correct,knowledge_point," +
                 "question_source,course_ware_id,submit_time,course_ware_type)" +
@@ -19,7 +19,7 @@ public class TopicRecordDaoImpl implements ITopicRecordDao {
 
         List<Object[]> paramsList = new ArrayList<>();
 
-        for (TopicRecordEntity tr : topicRecords) {
+        for (TopicRecordBean tr : topicRecords) {
             Object[] params = new Object[]{
                     tr.getUserId(),
                     tr.getQuestionId(),

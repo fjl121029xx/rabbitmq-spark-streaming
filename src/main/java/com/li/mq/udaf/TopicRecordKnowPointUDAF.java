@@ -21,7 +21,8 @@ public class TopicRecordKnowPointUDAF extends UserDefinedAggregateFunction {
                         DataTypes.createStructField("step", DataTypes.LongType, true),
                         DataTypes.createStructField("subjectId", DataTypes.LongType, true),
                         DataTypes.createStructField("knowledgePoint", DataTypes.StringType, true),
-                        DataTypes.createStructField("correct", DataTypes.IntegerType, true)
+                        DataTypes.createStructField("correct", DataTypes.IntegerType, true),
+                        DataTypes.createStructField("time", DataTypes.LongType, true)
                 ));
     }
 
@@ -50,7 +51,7 @@ public class TopicRecordKnowPointUDAF extends UserDefinedAggregateFunction {
     @Override
     public void initialize(MutableAggregationBuffer buffer) {
         //knowledgePoint=0|questionIds=0|correct=0|error=0|sum=0|accuracy=0
-        buffer.update(0, "knowledgePoint=0_0_0,0,0|correct=0|error=0|sum=0|accuracy=0");
+        buffer.update(0, "knowledgePoint=0_0_0,0,0|correct=0|error=0|sum=0|accuracy=0|totalTime=0");
     }
 
     @Override
@@ -60,6 +61,7 @@ public class TopicRecordKnowPointUDAF extends UserDefinedAggregateFunction {
         long subjectId = input.getLong(1);
         String knowledgePointRow = input.getString(2);
         int correctRow = input.getInt(3);
+        long timeRow = input.getLong(4);
 
         knowledgePointRow = step + "_" + subjectId + "_" + knowledgePointRow;
 
@@ -82,6 +84,7 @@ public class TopicRecordKnowPointUDAF extends UserDefinedAggregateFunction {
             long correct = ValueUtil.parseStr2Long(str, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
             long error = ValueUtil.parseStr2Long(str, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
             long sum = ValueUtil.parseStr2Long(str, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
+            long time = ValueUtil.parseStr2Long(str, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_TOTALTIME);
 
             if (knowledgePointRow.equals(knowledgePoint)) {
 
@@ -99,6 +102,7 @@ public class TopicRecordKnowPointUDAF extends UserDefinedAggregateFunction {
                 accuracy = new BigDecimal(correct).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
             }
 
+            time += timeRow;
             if (!knowledgePoint.equals("0_0_0,0,0")) { //去掉knowledgePoint=0
 
                 accuracy = new BigDecimal(correct).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
@@ -106,7 +110,8 @@ public class TopicRecordKnowPointUDAF extends UserDefinedAggregateFunction {
                         "correct=" + correct + "|" +
                         "error=" + error + "|" +
                         "sum=" + sum + "|" +
-                        "accuracy=" + accuracy + "";
+                        "accuracy=" + accuracy + "|" +
+                        "totalTime=" + time;
                 sb.append(str).append("&&");
             }
 
@@ -115,6 +120,7 @@ public class TopicRecordKnowPointUDAF extends UserDefinedAggregateFunction {
         String str;
         if (!notHave) {
             String knowledgePoint = knowledgePointRow;
+            long time = timeRow;
             long correct = 0L, error = 0L, sum = 1L;
             if (correctRow == 1) {
 
@@ -130,7 +136,8 @@ public class TopicRecordKnowPointUDAF extends UserDefinedAggregateFunction {
                     "correct=" + correct + "|" +
                     "error=" + error + "|" +
                     "sum=" + sum + "|" +
-                    "accuracy=" + accuracy + "";
+                    "accuracy=" + accuracy + "|" +
+                    "totalTime=" + time;
 
             sb.append(str).append("&&");
         }
@@ -196,17 +203,19 @@ public class TopicRecordKnowPointUDAF extends UserDefinedAggregateFunction {
             long correct = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
             long error = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
             long sum = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
+            long time = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_TOTALTIME);
 
 
             String _knowledgePointAnalyzeInfoOther = mapRow.get(id);
             long correctOther = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
             long errorOther = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
             long sumOther = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
+            long timeOther = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_TOTALTIME);
 
             correct += correctOther;
             error += errorOther;
             sum += sumOther;
-
+            time += timeOther;
             double accuracy = new BigDecimal(correct).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
 
 
@@ -214,7 +223,8 @@ public class TopicRecordKnowPointUDAF extends UserDefinedAggregateFunction {
                     "correct=" + correct + "|" +
                     "error=" + error + "|" +
                     "sum=" + sum + "|" +
-                    "accuracy=" + accuracy + "").append("&&");
+                    "accuracy=" + accuracy + "|" +
+                    "totalTime=" + time).append("&&");
         }
 
 

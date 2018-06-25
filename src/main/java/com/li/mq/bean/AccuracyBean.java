@@ -12,9 +12,10 @@ import java.util.List;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @Getter
 @Setter
-public class AccuracyEntity {
+public class AccuracyBean {
 
-    public static final String HBASE_TABLE = "topic_record_accuracy_analyze";
+    public static final String TEST_HBASE_TABLE = "test_tr_accuracy_analyze2";
+    public static final String HBASE_TABLE = "tr_accuracy_analyze";
 
     /**
      * 答题正确率
@@ -26,6 +27,7 @@ public class AccuracyEntity {
     public static final String HBASE_TABLE_COLUMN_SUM = "sum";
     public static final String HBASE_TABLE_COLUMN_ACCURACY = "accuracy";
     public static final String HBASE_TABLE_COLUMN_SUBMITTIME = "submitTime";
+    public static final String HBASE_TABLE_COLUMN_ITEMNUMS = "itemNums";
     //平均答题时间
     public static final String HBASE_TABLE_COLUMN_AVERAGEANSWERTIME = "averageAnswerTime";
 
@@ -107,10 +109,15 @@ public class AccuracyEntity {
     /**
      * 知识点正确率
      */
-//    private List<AccuracyEntity> knowledgePointCorrectAnalyze;
+//    private List<AccuracyBean> knowledgePointCorrectAnalyze;
 
     /**
      * 课件正确率
      */
-//    private List<AccuracyEntity> courseWareCorrectAnalyze;
+//    private List<AccuracyBean> courseWareCorrectAnalyze;
+
+    /**
+     * 课后课中做题数量
+     */
+    private String itemNums;
 }

@@ -1,6 +1,6 @@
 package com.li.mq.dao.impl;
 
-import com.li.mq.bean.AccuracyEntity;
+import com.li.mq.bean.AccuracyBean;
 import com.li.mq.dao.IAccuracyDao;
 import com.li.mq.jdbc.JDBCHelper;
 
@@ -12,24 +12,24 @@ public class AccurayDaoImpl implements IAccuracyDao {
 
 
     @Override
-    public void insertBatch(List<AccuracyEntity> accuracies) {
+    public void insertBatch(List<AccuracyBean> accuracies) {
 
-        final List<AccuracyEntity> need2update = new ArrayList<>();
+        final List<AccuracyBean> need2update = new ArrayList<>();
 
-        List<AccuracyEntity> accuracyHad = this.findAll();
+        List<AccuracyBean> accuracyHad = this.findAll();
 
         final String batchInsertSql = "replace into tb_accuracy(id_time,user_id,correct,error,num,accuracy,submit_time,evaluation_answer_time) values(?,?,?,?,?,?,?,?)";
 
         batchSql(accuracies, batchInsertSql);
     }
 
-    private void batchSql(List<AccuracyEntity> need2insert, String batchInsertSql) {
+    private void batchSql(List<AccuracyBean> need2insert, String batchInsertSql) {
         new Thread(new Runnable() {
             @Override
             public void run() {
                 List<Object[]> paramsList = new ArrayList<>();
 
-                for (AccuracyEntity ac : need2insert) {
+                for (AccuracyBean ac : need2insert) {
                     Object[] params = new Object[]{
                             ac.getUserId() + ":" + ac.getSubmitTime(),
                             ac.getUserId(),
@@ -51,11 +51,11 @@ public class AccurayDaoImpl implements IAccuracyDao {
     }
 
     @Override
-    public List<AccuracyEntity> findAll() {
+    public List<AccuracyBean> findAll() {
 
         String sql = "select distinct * from tb_accuracy where DATE_FORMAT(now(),'%Y-%m-%d') = submit_time ";
 
-        final List<AccuracyEntity> accuracies = new ArrayList<AccuracyEntity>();
+        final List<AccuracyBean> accuracies = new ArrayList<AccuracyBean>();
 
         JDBCHelper jdbcHelper = JDBCHelper.getInstance();
 
@@ -67,7 +67,7 @@ public class AccurayDaoImpl implements IAccuracyDao {
                 while (rs.next()) {
                     long userid = Long.valueOf(String.valueOf(rs.getInt(1)));
 
-                    AccuracyEntity accuracy = new AccuracyEntity();
+                    AccuracyBean accuracy = new AccuracyBean();
                     accuracy.setUserId(userid);
 
                     accuracies.add(accuracy);

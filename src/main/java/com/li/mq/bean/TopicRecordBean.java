@@ -10,7 +10,7 @@ import lombok.*;
 @Getter
 @Setter
 @ToString
-public class TopicRecordEntity {
+public class TopicRecordBean {
 
     /**
      * 试题Id

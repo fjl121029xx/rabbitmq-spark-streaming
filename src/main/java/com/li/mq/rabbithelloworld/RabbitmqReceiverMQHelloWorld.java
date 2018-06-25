@@ -16,9 +16,9 @@ public class RabbitmqReceiverMQHelloWorld {
         // 创建连接工厂
         ConnectionFactory factory = new ConnectionFactory();
         //设置RabbitMQ地址
-        factory.setHost("192.168.65.129");
-        factory.setUsername("admin");
-        factory.setPassword("admin");
+        factory.setHost("192.168.100.21");
+        factory.setUsername("rabbitmq_ztk");
+        factory.setPassword("rabbitmq_ztk");
 
         //创建一个新的连接
         Connection connection = factory.newConnection();
@@ -60,9 +60,9 @@ public class RabbitmqReceiverMQHelloWorld {
         //创建连接工厂
         ConnectionFactory factory = new ConnectionFactory();
         //设置RabbitMQ相关信息
-        factory.setHost("192.168.65.129");
-        factory.setUsername("admin");
-        factory.setPassword("admin");
+        factory.setHost("192.168.100.21");
+        factory.setUsername("rabbitmq_ztk");
+        factory.setPassword("rabbitmq_ztk");
 //        factory.setPort(15672);
 
         //创建一个新的连接

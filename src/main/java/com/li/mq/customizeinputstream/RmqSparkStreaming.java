@@ -1,16 +1,20 @@
 package com.li.mq.customizeinputstream;
 
-import com.li.mq.bean.AccuracyEntity;
-import com.li.mq.bean.TopicRecordEntity;
+import com.li.mq.bean.AccuracyBean;
+import com.li.mq.bean.TopicRecordBean;
 import com.li.mq.constants.TopicRecordConstant;
-import com.li.mq.dao.IAccuracyDao;
 import com.li.mq.dao.ITopicRecordDao;
 import com.li.mq.dao.factory.DaoFactory;
 import com.li.mq.udaf.TopicRecordAccuracyUDAF;
 import com.li.mq.udaf.TopicRecordCourse2AccUDAF;
+import com.li.mq.udaf.TopicRecordItemNumsUDAF;
 import com.li.mq.udaf.TopicRecordKnowPointUDAF;
 import com.li.mq.utils.HBaseUtil;
+import com.li.mq.utils.HdfsUtil;
 import com.li.mq.utils.ValueUtil;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.Optional;
@@ -19,7 +23,6 @@ import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.RowFactory;
 import org.apache.spark.sql.SQLContext;
-import org.apache.spark.sql.expressions.UserDefinedAggregateFunction;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.streaming.Durations;
@@ -29,6 +32,7 @@ import org.apache.spark.streaming.api.java.JavaReceiverInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import scala.Tuple2;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -37,18 +41,47 @@ public class RmqSparkStreaming {
 
     private static final SimpleDateFormat sdfYMD = new SimpleDateFormat("yyyy-MM-dd");
 
+    private static FileSystem fs;
+
+    private static final Log logger = LogFactory.getLog(RmqSparkStreaming.class);
+
+    static {
+        try {
+            fs = FileSystem.get(HdfsUtil.Configuration);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     public static void main(String[] args) throws InterruptedException {
 
-
         final SparkConf conf = new SparkConf()
-                .setMaster("local[2]")
+                .setMaster("local")
                 .setAppName("RmqSparkStreaming");
-        //
+        logger.info("---------------------------");
+//        try {
+//            //重新编译后，删除streamingContext检查点文件
+//            Path path = new Path("/rabbitmq/sparkstreaming/driver");
+//            fs.delete(path, true);
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+        //解决驱动节点失效
+//        JavaStreamingContext jsc = JavaStreamingContext.getOrCreate("hdfs://192.168.100.26:8020/rabbitmq/sparkstreaming/checkpoing", new Function0<JavaStreamingContext>() {
+//            @Override
+//            public JavaStreamingContext call() throws Exception {
+//
+//
+//                JavaStreamingContext jsc = new JavaStreamingContext(conf, Durations.seconds(5));
+//                jsc.checkpoint("hdfs://192.168.100.26:8020/rabbitmq/sparkstreaming/driver");
+//                return jsc;
+//            }
+//        });
         JavaStreamingContext jsc = new JavaStreamingContext(conf, Durations.seconds(5));
-        jsc.checkpoint("D:\\tmp\\checkpoint");
+        jsc.checkpoint("hdfs://192.168.100.26:8020/rabbitmq/sparkstreaming/checkpoing");
+
         //
         JavaReceiverInputDStream<String> streamFromRamq = jsc.receiverStream(new RabbitmqReceiver());
-
         /**
          *
          */
@@ -122,6 +155,7 @@ public class RmqSparkStreaming {
         JavaDStream<Row> topicResultResult = correctAnalyze(topicRecord);
 //
         save2hbase(topicResultResult);
+//        saveAll2hbase(topicResultResult);
 
 //        save2mysql(topicResultResultVerify);
 
@@ -204,6 +238,7 @@ public class RmqSparkStreaming {
                 sqlContext.udf().register("correctAnalyze", new TopicRecordAccuracyUDAF());
                 sqlContext.udf().register("courseWare2topic", new TopicRecordCourse2AccUDAF());
                 sqlContext.udf().register("knowledgePoint2topic", new TopicRecordKnowPointUDAF());
+                sqlContext.udf().register("itemNums", new TopicRecordItemNumsUDAF());
 
 
                 Dataset<Row> result = sqlContext.sql("" +
@@ -211,8 +246,9 @@ public class RmqSparkStreaming {
                         "userId ," +
                         "correctAnalyze(correct,submitTimeDate,time) as correctAnalyze," +
                         "courseWare2topic(courseWare_id,courseWare_type,correct) as courseCorrectAnalyze, " +
-                        "knowledgePoint2topic(step,subjectId,knowledgePoint,correct) as knowledgePointCorrectAnalyze," +
-                        "count(*) " +
+                        "knowledgePoint2topic(step,subjectId,knowledgePoint,correct,time) as knowledgePointCorrectAnalyze," +
+                        "count(*)," +
+                        "itemNums(questionSource) as itemNums " +
                         "from tb_topic_record " +
                         "group by userId");
 
@@ -222,35 +258,23 @@ public class RmqSparkStreaming {
         });
     }
 
+
     private static void save2hbase(JavaDStream<Row> topicResultResult) {
+
 
         topicResultResult.foreachRDD(new VoidFunction<JavaRDD<Row>>() {
             @Override
             public void call(JavaRDD<Row> rowJavaRDD) throws Exception {
-
-                rowJavaRDD.coalesce(10).foreachPartition(new VoidFunction<Iterator<Row>>() {
-
+                rowJavaRDD.foreach(new VoidFunction<Row>() {
                     @Override
-                    public void call(Iterator<Row> rowIte) throws Exception {
+                    public void call(Row rowRecord) throws Exception {
 
-                        List<AccuracyEntity> acs = new ArrayList<>();
-                        while (rowIte.hasNext()) {
-
-                            Row rowRecord = rowIte.next();
-
-                            save2list(acs, rowRecord);
-                        }
-
-                        HBaseUtil.putAll2hbase(AccuracyEntity.HBASE_TABLE, acs);
-                    }
-
-                    private void save2list(List<AccuracyEntity> acs, Row rowRecord) {
                         long userId = rowRecord.getLong(0);
                         String userCorrectAnalyze = rowRecord.getString(1);
                         String courseCorrectAnalyze = rowRecord.getString(2);
                         String knowledgePointAnalyze = rowRecord.getString(3);
                         long count = rowRecord.getLong(4);
-
+                        String itemNums = rowRecord.getString(5);
 
                         Long correct = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
                         Long error = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
@@ -261,7 +285,8 @@ public class RmqSparkStreaming {
 
                         averageAnswerTime = new BigDecimal(averageAnswerTime).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).longValue();
 
-                        AccuracyEntity ac = new AccuracyEntity();
+
+                        AccuracyBean ac = new AccuracyBean();
                         ac.setUserId(userId);
                         ac.setSubmitTime(submitTimeDate);
 
@@ -284,6 +309,78 @@ public class RmqSparkStreaming {
                          */
                         ac.setCount(count);
 
+                        ac.setItemNums(itemNums);
+
+                        HBaseUtil.put2hbase(AccuracyBean.TEST_HBASE_TABLE, ac);
+                    }
+                });
+            }
+        });
+    }
+
+    private static void saveAll2hbase(JavaDStream<Row> topicResultResult) {
+
+        topicResultResult.foreachRDD(new VoidFunction<JavaRDD<Row>>() {
+            @Override
+            public void call(JavaRDD<Row> rowJavaRDD) throws Exception {
+
+                rowJavaRDD.coalesce(1).foreachPartition(new VoidFunction<Iterator<Row>>() {
+
+                    @Override
+                    public void call(Iterator<Row> rowIte) throws Exception {
+
+                        List<AccuracyBean> acs = new ArrayList<>();
+                        while (rowIte.hasNext()) {
+
+                            Row rowRecord = rowIte.next();
+
+                            saveAll2list(acs, rowRecord);
+                        }
+
+                        HBaseUtil.putAll2hbase(AccuracyBean.TEST_HBASE_TABLE, acs);
+                    }
+
+                    private void saveAll2list(List<AccuracyBean> acs, Row rowRecord) {
+                        long userId = rowRecord.getLong(0);
+                        String userCorrectAnalyze = rowRecord.getString(1);
+                        String courseCorrectAnalyze = rowRecord.getString(2);
+                        String knowledgePointAnalyze = rowRecord.getString(3);
+                        long count = rowRecord.getLong(4);
+
+
+                        Long correct = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
+                        Long error = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
+                        Long sum = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
+                        Double accuracy = ValueUtil.parseStr2Dou(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ACCURACY);
+                        String submitTimeDate = ValueUtil.parseStr2Str(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUBMITTIMEDATE);
+                        Long averageAnswerTime = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_AVERAGEANSWERTIME);
+
+                        averageAnswerTime = new BigDecimal(averageAnswerTime).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).longValue();
+
+                        AccuracyBean ac = new AccuracyBean();
+                        ac.setUserId(userId);
+                        ac.setSubmitTime(submitTimeDate);
+
+
+                        ac.setAverageAnswerTime(averageAnswerTime);
+                        ac.setCorrect(correct);
+                        ac.setError(error);
+                        ac.setSum(sum);
+                        ac.setAccuracy(accuracy);
+                        /**
+                         * 当前用户每个课件答题正确率
+                         */
+                        ac.setCourseCorrectAnalyze(courseCorrectAnalyze);
+                        /**
+                         * 当前用户每个知识点答题正确率
+                         */
+                        ac.setKnowledgePointCorrectAnalyze(knowledgePointAnalyze);
+                        /**
+                         * count
+                         */
+                        ac.setCount(count);
+
+                        System.out.println(ac);
                         acs.add(ac);
                     }
                 });
@@ -305,7 +402,7 @@ public class RmqSparkStreaming {
                         @Override
                         public void call(Iterator<Row> rowIte) throws Exception {
 
-                            List<TopicRecordEntity> trs = new ArrayList<>();
+                            List<TopicRecordBean> trs = new ArrayList<>();
                             while (rowIte.hasNext()) {
 
                                 Row rowRecord = rowIte.next();
@@ -320,7 +417,7 @@ public class RmqSparkStreaming {
                                 int questionSource = rowRecord.getInt(7);
                                 String submitTimeDate = rowRecord.getString(8);
 
-                                TopicRecordEntity tr = new TopicRecordEntity();
+                                TopicRecordBean tr = new TopicRecordBean();
                                 tr.setUserId(userId);
                                 tr.setCourseWareId(courseWare_id);
                                 tr.setCourseWareType(courseWare_type);

@@ -95,6 +95,11 @@ public class TopicRecordConstant {
     public static final String SSTREAM_TOPIC_RECORD_UDAF_AVERAGEANSWERTIME = "averageAnswerTime";
 
     /**
+     * udaf param  totalTime
+     */
+    public static final String SSTREAM_TOPIC_RECORD_UDAF_TOTALTIME = "totalTime";
+
+    /**
      * udaf param  courseWareId
      */
     public static final String SSTREAM_TOPIC_RECORD_UDAF_COURSEWAREID = "courseWareId";
@@ -108,6 +113,16 @@ public class TopicRecordConstant {
      * udaf param  knowledgePoint
      */
     public static final String SSTREAM_TOPIC_RECORD_UDAF_KNOWLEDGEPOINT = "knowledgePoint";
+
+    /**
+     * udaf param  afterClass   课后
+     */
+    public static final String SSTREAM_TOPIC_RECORD_UDAF_AFTERCLASS = "afterClass";
+
+    /**
+     * udaf param  middleClass   课中
+     */
+    public static final String SSTREAM_TOPIC_RECORD_UDAF_MIDDLECLASS = "middleClass";
 
 
 }

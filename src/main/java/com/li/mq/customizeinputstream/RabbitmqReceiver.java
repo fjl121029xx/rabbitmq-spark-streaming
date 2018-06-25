@@ -1,24 +1,34 @@
 package com.li.mq.customizeinputstream;
 
-import com.li.mq.bean.TopicRecordEntity;
+import com.li.mq.bean.TopicRecordBean;
 import com.rabbitmq.client.*;
+import org.apache.flume.source.avro.AvroFlumeEvent;
 import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.streaming.receiver.Receiver;
 import com.alibaba.fastjson.JSONObject;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 import java.io.IOException;
 
 public class RabbitmqReceiver extends Receiver<String> {
 
-    private final static String QUEUE_NAME = "rabbitMQ.test";
+    private final static String QUEUE_NAME = "spark_topic_record";
 
     private ConnectionFactory factory;
     QueueingConsumer consumer;
-    String hostname = "192.168.65.130";//define hostname for rabbitmq reciver
+    private final static String HOSTNAME = "192.168.100.21";//define hostname for rabbitmq reciver
+    private final static String USERNAME = "rabbitmq_ztk";
+    private final static String PASSWORD = "rabbitmq_ztk";
+
     Connection connection;
     Channel channel;
 
+    private static final Log logger = LogFactory.getLog(RabbitmqReceiver.class);
+
     public RabbitmqReceiver() {
+
         super(StorageLevel.MEMORY_AND_DISK_2());
     }
 
@@ -46,18 +56,18 @@ public class RabbitmqReceiver extends Receiver<String> {
         //创建一个RABBITMQ连接工程
         factory = new ConnectionFactory();
         //设置RabbitMQ地址
-        factory.setHost("192.168.65.130");
-        factory.setUsername("admin");
-        factory.setPassword("admin");
+        factory.setHost(RabbitmqReceiver.HOSTNAME);
+        factory.setUsername(RabbitmqReceiver.USERNAME);
+        factory.setPassword(RabbitmqReceiver.PASSWORD);
 
         //从工厂中获取一个连接
         connection = factory.newConnection();
         //创建一个通道
         channel = connection.createChannel();
 
-
         channel.queueDeclare(QUEUE_NAME, false, false, false, null);
         System.out.println("Customer Waiting Received messages");
+
 
         Consumer consumer = new DefaultConsumer(channel) {
             @Override
@@ -65,8 +75,9 @@ public class RabbitmqReceiver extends Receiver<String> {
                                        AMQP.BasicProperties properties, byte[] body)
                     throws IOException {
                 String message = new String(body, "UTF-8");
-                TopicRecordEntity tr = JSONObject.parseObject(message, TopicRecordEntity.class);
+                TopicRecordBean tr = JSONObject.parseObject(message, TopicRecordBean.class);
                 System.out.println("receiver message : => " + tr.toString());
+                logger.info("receiver message : => " + tr.toString());
                 store(tr.toString());
             }
         };

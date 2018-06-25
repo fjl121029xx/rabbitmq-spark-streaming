@@ -1,7 +1,7 @@
 package com.li.mq.dao;
 
 
-import com.li.mq.bean.AccuracyEntity;
+import com.li.mq.bean.AccuracyBean;
 
 import java.util.List;
 
@@ -10,10 +10,10 @@ public interface IAccuracyDao {
     /**
      *
      */
-    void insertBatch(List<AccuracyEntity> topicRecords);
+    void insertBatch(List<AccuracyBean> topicRecords);
 
     /**
      *
      */
-    List<AccuracyEntity> findAll();
+    List<AccuracyBean> findAll();
 }
