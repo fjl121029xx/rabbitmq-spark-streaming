@@ -15,6 +15,7 @@ import com.li.mq.utils.ValueUtil;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.Optional;
@@ -56,24 +57,24 @@ public class RmqSparkStreaming {
     public static void main(String[] args) throws InterruptedException {
 
         final SparkConf conf = new SparkConf()
-                .setMaster("local")
+//                .setMaster("local[2]")
                 .setAppName("RmqSparkStreaming");
         logger.info("---------------------------");
 //        try {
 //            //重新编译后，删除streamingContext检查点文件
-//            Path path = new Path("/rabbitmq/sparkstreaming/driver");
+//            Path path = new Path("/rabbitmq/");
 //            fs.delete(path, true);
 //        } catch (IOException e) {
 //            e.printStackTrace();
 //        }
-        //解决驱动节点失效
-//        JavaStreamingContext jsc = JavaStreamingContext.getOrCreate("hdfs://192.168.100.26:8020/rabbitmq/sparkstreaming/checkpoing", new Function0<JavaStreamingContext>() {
+//        //解决驱动节点失效
+//        JavaStreamingContext jsc = JavaStreamingContext.getOrCreate("hdfs://192.168.100.26:8020/rabbitmq/sparkstreaming/driversaved", new Function0<JavaStreamingContext>() {
 //            @Override
 //            public JavaStreamingContext call() throws Exception {
 //
 //
 //                JavaStreamingContext jsc = new JavaStreamingContext(conf, Durations.seconds(5));
-//                jsc.checkpoint("hdfs://192.168.100.26:8020/rabbitmq/sparkstreaming/driver");
+//                jsc.checkpoint("hdfs://192.168.100.26:8020/rabbitmq/sparkstreaming/checkpoing");
 //                return jsc;
 //            }
 //        });
