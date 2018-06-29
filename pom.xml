@@ -25,7 +25,7 @@
         <encoding>UTF-8</encoding>
         <scala.version>2.11.5</scala.version>
         <scala.compat.version>2.11</scala.compat.version>
-        <spark.version>1.6.1</spark.version>
+        <spark.version>2.1.1</spark.version>
         <rabbitmq.version>3.5.1</rabbitmq.version>
     </properties>
 

@@ -95,7 +95,6 @@ public class HBaseUtil {
              }
              */
             byte[] value = r.getValue(Bytes.toBytes("info"), Bytes.toBytes("name"));
-            System.out.println(new String(value));
         }
         pool.close();
     }
@@ -179,7 +178,6 @@ public class HBaseUtil {
         List<Cell> cells = result.listCells();
         for (Cell c : cells) {
             byte[] familyArray = c.getQualifier();
-            System.out.println(new String(familyArray) + "=" + new String(c.getValue()));
         }
 
         table.close();
@@ -199,7 +197,6 @@ public class HBaseUtil {
         List<Cell> cells = result.listCells();
         for (Cell c : cells) {
             byte[] familyArray = c.getQualifier();
-            System.out.println(new String(familyArray));
         }
 
 
@@ -288,7 +285,6 @@ public class HBaseUtil {
 
         try {
 
-            System.out.println(System.currentTimeMillis() + "----> putAll2hbase start\t" + accuracyList.size());
             HTable _table = new HTable(conf, table);
 
             String array[][] = new String[accuracyList.size()][AccuracyBean.class.getDeclaredFields().length];
@@ -378,7 +374,6 @@ public class HBaseUtil {
 //            _table.delete(deletes);
 
             _table.put(puts);
-            System.out.println(System.currentTimeMillis() + "----> putAll2hbase finish\t" + accuracyList.size());
         } catch (IOException e) {
             e.printStackTrace();
         }

@@ -76,7 +76,6 @@ public class RabbitmqReceiver extends Receiver<String> {
                     throws IOException {
                 String message = new String(body, "UTF-8");
                 TopicRecordBean tr = JSONObject.parseObject(message, TopicRecordBean.class);
-                System.out.println("receiver message : => " + tr.toString());
                 logger.info("receiver message : => " + tr.toString());
                 store(tr.toString());
             }
