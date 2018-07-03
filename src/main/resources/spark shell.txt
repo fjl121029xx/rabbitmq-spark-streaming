@@ -1,0 +1,2 @@
+cd /usr/local/spark-2.1.0-bin-hadoop2.7/bin/
+./spark-submit --master  spark://master:7077  --deploy-mode=cluster  --class com.li.mq.customizeinputstream.RmqSparkStreaming -v --driver-memory 2G  --total-executor-cores 6 --executor-cores 2  --executor-memory 1G  --conf spark.default.parallelism=9 --files hdfs://192.168.100.26:8020/sparkwork/log4j.properties --conf spark.executor.extraJavaOptions="-Dlog4j.configuration=log4j.properties" hdfs://192.168.100.26:8020/sparkwork/trmq2spark.jar

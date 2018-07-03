@@ -2,7 +2,6 @@ package com.li.mq.customizeinputstream;
 
 import com.li.mq.bean.TopicRecordBean;
 import com.rabbitmq.client.*;
-import org.apache.flume.source.avro.AvroFlumeEvent;
 import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.streaming.receiver.Receiver;
 import com.alibaba.fastjson.JSONObject;
@@ -76,6 +75,8 @@ public class RabbitmqReceiver extends Receiver<String> {
                     throws IOException {
                 String message = new String(body, "UTF-8");
                 TopicRecordBean tr = JSONObject.parseObject(message, TopicRecordBean.class);
+
+                System.out.println("receiver message : => " + tr.toString());
                 logger.info("receiver message : => " + tr.toString());
                 store(tr.toString());
             }

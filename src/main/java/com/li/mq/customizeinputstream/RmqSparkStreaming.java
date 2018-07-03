@@ -57,31 +57,32 @@ public class RmqSparkStreaming {
     public static void main(String[] args) throws InterruptedException {
 
         final SparkConf conf = new SparkConf()
-                .setMaster("spark://master:7077")
+//                .setMaster("spark://master:7077")
+//                .setMaster("local[2]")
                 .setAppName("RmqSparkStreaming");
 
-        try {
-            //重新编译后，删除streamingContext检查点文件
-            Path path = new Path("/sparkstreaming/driversaved");
-            fs.delete(path, true);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        //解决驱动节点失效
-        JavaStreamingContext jsc = JavaStreamingContext.getOrCreate("hdfs://192.168.100.26:8020/sparkstreaming/driversaved", new Function0<JavaStreamingContext>() {
-            @Override
-            public JavaStreamingContext call() throws Exception {
-
-
-                JavaStreamingContext jsc = new JavaStreamingContext(conf, Durations.seconds(5));
-                jsc.checkpoint("hdfs://192.168.100.26:8020/sparkstreaming/checkpoint/data");
-                return jsc;
-            }
-        });
-//        JavaStreamingContext jsc = new JavaStreamingContext(conf, Durations.seconds(5));
-//        jsc.checkpoint("hdfs://192.168.100.26:8020/rabbitmq/sparkstreaming/checkpoing");
-
+//        try {
+//            //重新编译后，删除streamingContext检查点文件
+//            Path path = new Path("/sparkstreaming/driversaved");
+//            fs.delete(path, true);
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+//        //解决驱动节点失效
+//        JavaStreamingContext jsc = JavaStreamingContext.getOrCreate("hdfs://192.168.100.26:8020/sparkstreaming/driversaved", new Function0<JavaStreamingContext>() {
+//            @Override
+//            public JavaStreamingContext call() throws Exception {
+//
+//
+//                JavaStreamingContext jsc = new JavaStreamingContext(conf, Durations.seconds(5));
+//                jsc.checkpoint("hdfs://192.168.100.26:8020/sparkstreaming/checkpoint/data");
+//                return jsc;
+//            }
+//        });
+        JavaStreamingContext jsc = new JavaStreamingContext(conf, Durations.seconds(5));
+        jsc.checkpoint("hdfs://192.168.100.26:8020/sparkstreaming/checkpoint/data");
         //
+
         JavaReceiverInputDStream<String> streamFromRamq = jsc.receiverStream(new RabbitmqReceiver());
         /**
          *
@@ -174,7 +175,7 @@ public class RmqSparkStreaming {
             @Override
             public JavaRDD<Row> call(JavaRDD<String> rdd) throws Exception {
 
-                JavaRDD<Row> topicRecordRow = rdd.map(new Function<String, Row>() {
+                JavaRDD<Row> topicRecordRow = rdd.coalesce(1).map(new Function<String, Row>() {
                     @Override
                     public Row call(String info) throws Exception {
 
@@ -266,7 +267,8 @@ public class RmqSparkStreaming {
         topicResultResult.foreachRDD(new VoidFunction<JavaRDD<Row>>() {
             @Override
             public void call(JavaRDD<Row> rowJavaRDD) throws Exception {
-                rowJavaRDD.foreach(new VoidFunction<Row>() {
+
+                rowJavaRDD.coalesce(1).foreach(new VoidFunction<Row>() {
                     @Override
                     public void call(Row rowRecord) throws Exception {
 
