@@ -1,2 +1,44 @@
+#!/bin/bash
+
+hdfs_path=hdfs://192.168.100.26:8020/sparkwork
+jar_name=trmq2spark.jar
+class_name=com.li.mq.customizeinputstream.RmqSparkStreaming
+spark_home=file:/usr/local/spark-2.1.0-bin-hadoop2.7
+log_name=log4j-flume.properties
+deploy_mode=cluster
+
+flume_home=file:/usr/local/apache-flume-1.6.0-bin/lib/
+cd /usr/local/apache-flume-1.6.0-bin/lib/
+flume_jars=""
+
+concat(){
+   flume_jars=`echo "${flume_jars},${2}${1}"`
+}
+
+for i in `ls flume-*`
+do
+
+   if [ -d "$i" ]
+        then
+            show "$i"
+        else
+            concat $i $flume_home
+        fi
+
+done
+
+len=${#flume_jars}
+
+
 cd /usr/local/spark-2.1.0-bin-hadoop2.7/bin/
-./spark-submit --master  spark://master:7077  --deploy-mode=cluster  --class com.li.mq.customizeinputstream.RmqSparkStreaming -v --driver-memory 2G  --total-executor-cores 6 --executor-cores 2  --executor-memory 1G  --conf spark.default.parallelism=9 --files hdfs://192.168.100.26:8020/sparkwork/log4j.properties --conf spark.executor.extraJavaOptions="-Dlog4j.configuration=log4j.properties" hdfs://192.168.100.26:8020/sparkwork/trmq2spark.jar
+
+cmd="./spark-submit --master  spark://master:7077  --deploy-mode=${deploy_mode}  --class ${class_name} -v --driver-memory 2G  --total-executor-cores 6 --executor-cores 2  --executor-memory 1G  --jars ${flume_jars:1:$len} --conf spark.default.parallelism=9 --driver-java-options=\"-Dlog4j.configuration=${spark_home}/conf/${log_name}\" --conf spark.executor.extraJavaOptions=\"-Dlog4j.configuration=${spark_home}/conf/${log_name}\"  ${hdfs_path}/${jar_name}"
+
+echo "${cmd}"
+
+trmq2spark(){
+
+  ${cmd}
+}
+
+trmq2spark
