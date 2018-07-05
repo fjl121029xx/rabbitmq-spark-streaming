@@ -90,10 +90,10 @@ public class TopicRecordKnowPointUDAF extends UserDefinedAggregateFunction {
 
                 notHave = true;
 
-                if (correctRow == 1) {
+                if (correctRow == 0) {
 
                     correct++;
-                } else if (correctRow == 0) {
+                } else if (correctRow == 1) {
 
                     error++;
                 }
@@ -122,11 +122,11 @@ public class TopicRecordKnowPointUDAF extends UserDefinedAggregateFunction {
             String knowledgePoint = knowledgePointRow;
             long time = timeRow;
             long correct = 0L, error = 0L, sum = 1L;
-            if (correctRow == 1) {
+            if (correctRow == 0) {
 
                 correct = 1L;
                 error = 0L;
-            } else if (correctRow == 0) {
+            } else if (correctRow == 1) {
                 correct = 0L;
                 error = 1L;
             }

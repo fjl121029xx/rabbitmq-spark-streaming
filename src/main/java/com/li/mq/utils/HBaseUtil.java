@@ -167,17 +167,17 @@ public class HBaseUtil {
     public void testGet() throws Exception {
         //HTablePool pool = new HTablePool(conf, 10);
         //HTable table = (HTable) pool.getTable("user");
-        HTable table = new HTable(conf, "test_tr_accuracy_analyze");
+        HTable table = new HTable(conf, "test_tr_accuracy_analyze2");
         Get get = new Get(Bytes.toBytes("26"));
-        //get.addColumn(Bytes.toBytes("info"), Bytes.toBytes("name"));
         get.setMaxVersions(1);
         Result result = table.get(get);
-        //result.getValue(family, qualifier)
-
 
         List<Cell> cells = result.listCells();
         for (Cell c : cells) {
-            byte[] familyArray = c.getQualifier();
+            byte[] qualifier = c.getQualifier();
+            byte[] valueArray = c.getValueArray();
+
+            System.out.println(new String(qualifier) + ":" + new String(valueArray, c.getValueOffset(), c.getValueLength()));
         }
 
         table.close();
@@ -197,6 +197,7 @@ public class HBaseUtil {
         List<Cell> cells = result.listCells();
         for (Cell c : cells) {
             byte[] familyArray = c.getQualifier();
+            System.out.println(new String(familyArray));
         }
 
 

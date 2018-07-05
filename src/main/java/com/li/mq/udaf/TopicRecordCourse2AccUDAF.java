@@ -115,11 +115,11 @@ public class TopicRecordCourse2AccUDAF extends UserDefinedAggregateFunction {
         if (!notHave) {
             courseWareId = courseWareIdRow + "_" + courseWareTypeRow.toString();
 
-            if (correctRow == 1) {
+            if (correctRow == 0) {
 
                 correct = 1;
                 error = 0;
-            } else if (correctRow == 0) {
+            } else if (correctRow == 1) {
 
                 correct = 0;
                 error = 1;

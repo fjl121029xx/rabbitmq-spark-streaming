@@ -61,107 +61,125 @@ public class RmqSparkStreaming {
 //                .setMaster("local[2]")
                 .setAppName("RmqSparkStreaming");
 
-        try {
-            //重新编译后，删除streamingContext检查点文件
-            Path path = new Path("/sparkstreaming/driversaved");
-            fs.delete(path, true);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        //解决驱动节点失效
-        JavaStreamingContext jsc = JavaStreamingContext.getOrCreate("hdfs://192.168.100.26:8020/sparkstreaming/driversaved", new Function0<JavaStreamingContext>() {
+//        try {
+//            //重新编译后，删除streamingContext检查点文件
+//            Path path = new Path("/sparkstreaming/driversaved");
+//            fs.delete(path, true);
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+        //
+        JavaStreamingContext jsc = JavaStreamingContext.getOrCreate("hdfs://192.168.100.26:8020/sparkstreaming/checkpoint/data", new Function0<JavaStreamingContext>() {
             @Override
             public JavaStreamingContext call() throws Exception {
 
 
                 JavaStreamingContext jsc = new JavaStreamingContext(conf, Durations.seconds(5));
                 jsc.checkpoint("hdfs://192.168.100.26:8020/sparkstreaming/checkpoint/data");
+
+                JavaReceiverInputDStream<String> streamFromRamq = jsc.receiverStream(new RabbitmqReceiver());
+
+                JavaPairDStream<Long, String> userid2info = streamFromRamq.mapPartitionsToPair(new PairFlatMapFunction<Iterator<String>, Long, String>() {
+                    @Override
+                    public Iterator<Tuple2<Long, String>> call(Iterator<String> strite) throws Exception {
+                        List<Tuple2<Long, String>> list = new ArrayList<>();
+
+                        while (strite.hasNext()) {
+
+                            String str = strite.next();
+
+                            String[] fields = str.split("\\|");
+
+                            String userid_str = fields[0];
+
+                            String userid = userid_str.split("=")[1];
+
+                            StringBuffer info = new StringBuffer();
+                            for (int i = 0; i < fields.length; i++) {
+                                info.append(fields[i]).append("|");
+                            }
+                            info.deleteCharAt(info.length() - 1);
+
+                            list.add(new Tuple2<>(Long.parseLong(userid), info.toString()));
+                        }
+
+                        return list.iterator();
+                    }
+                });
+
+
+                JavaPairDStream<Long, String> userid2infolist = userid2info.updateStateByKey(new Function2<List<String>, Optional<String>, Optional<String>>() {
+
+                    @Override
+                    public Optional<String> call(List<String> nowinfolist, Optional<String> original) throws Exception {
+
+                        StringBuffer sb = null;
+                        if (original.isPresent()) {
+                            sb = new StringBuffer(original.get());
+                        } else {
+                            original = Optional.of("");
+                            sb = new StringBuffer(original.get());
+                        }
+
+                        for (String info : nowinfolist) {
+
+                            sb.append(info).append("&");
+                        }
+
+                        char end = sb.charAt(sb.length() - 1);
+                        if (end == (char) '&') {
+                            sb.deleteCharAt(sb.length() - 1);
+                        }
+
+                        return Optional.of(sb.toString());
+                    }
+                });
+
+                JavaDStream<String> topicRecord = userid2infolist.flatMap(new FlatMapFunction<Tuple2<Long, String>, String>() {
+                    @Override
+                    public Iterator<String> call(Tuple2<Long, String> t) throws Exception {
+
+                        return Arrays.asList(t._2.split("&")).iterator();
+                    }
+                });
+
+                topicRecord.cache();
+
+                //用户维度下的做题正确率
+                JavaDStream<Row> userCorrectAnalyzeResult = userCorrectAnalyze(topicRecord);
+                save2hbase(userCorrectAnalyzeResult);
+
+                userCorrectAnalyzeResult.count();
+
                 return jsc;
             }
         });
-//        JavaStreamingContext jsc = new JavaStreamingContext(conf, Durations.seconds(5));
-//        jsc.checkpoint("hdfs://192.168.100.26:8020/sparkstreaming/checkpoint/data");
-        //
-
-        JavaReceiverInputDStream<String> streamFromRamq = jsc.receiverStream(new RabbitmqReceiver());
-        /**
-         *	syllabusId
-         */
-        JavaPairDStream<Long, String> userid2info = streamFromRamq.mapPartitionsToPair(new PairFlatMapFunction<Iterator<String>, Long, String>() {
-            @Override
-            public Iterator<Tuple2<Long, String>> call(Iterator<String> strite) throws Exception {
-                List<Tuple2<Long, String>> list = new ArrayList<>();
-
-                while (strite.hasNext()) {
-
-                    String str = strite.next();
-
-                    String[] fields = str.split("\\|");
-
-                    String userid_str = fields[0];
-
-                    String userid = userid_str.split("=")[1];
-
-                    StringBuffer info = new StringBuffer();
-                    for (int i = 0; i < fields.length; i++) {
-                        info.append(fields[i]).append("|");
-                    }
-                    info.deleteCharAt(info.length() - 1);
-
-                    list.add(new Tuple2<>(Long.parseLong(userid), info.toString()));
-                }
-
-                return list.iterator();
-            }
-        });
-
-
-        JavaPairDStream<Long, String> userid2infolist = userid2info.updateStateByKey(new Function2<List<String>, Optional<String>, Optional<String>>() {
-
-            @Override
-            public Optional<String> call(List<String> nowinfolist, Optional<String> original) throws Exception {
-
-                StringBuffer sb = null;
-                if (original.isPresent()) {
-                    sb = new StringBuffer(original.get());
-                } else {
-                    original = Optional.of("");
-                    sb = new StringBuffer(original.get());
-                }
-
-                for (String info : nowinfolist) {
-
-                    sb.append(info).append("&");
-                }
-
-                char end = sb.charAt(sb.length() - 1);
-                if (end == (char) '&') {
-                    sb.deleteCharAt(sb.length() - 1);
-                }
-
-                return Optional.of(sb.toString());
-            }
-        });
-
-        JavaDStream<String> topicRecord = userid2infolist.flatMap(new FlatMapFunction<Tuple2<Long, String>, String>() {
-            @Override
-            public Iterator<String> call(Tuple2<Long, String> t) throws Exception {
-
-                return Arrays.asList(t._2.split("&")).iterator();
-            }
-        });
-
-
-//        JavaDStream<Row> topicResultResultVerify = correctAnalyzeVerify(topicRecord);
-
-        JavaDStream<Row> topicResultResult = correctAnalyze(topicRecord);
-//
-        save2hbase(topicResultResult);
-//        saveAll2hbase(topicResultResult);
-
+//        saveAll2hbase(userCorrectAnalyzeResult);
 //        save2mysql(topicResultResultVerify);
 
-        topicResultResult.count();
+        //---------------优化
+        //知识点维度
+//        JavaDStream<Row> userTopicRecordRow = userTopicRecordRow(topicRecord);
+//
+//        JavaDStream<Row> kp = userTopicRecordRow.transform(new Function<JavaRDD<Row>, JavaRDD<Row>>() {
+//            @Override
+//            public JavaRDD<Row> call(JavaRDD<Row> rdd) throws Exception {
+//
+//                SQLContext sqlContext = new SQLContext(rdd.context());
+//
+//                Dataset<Row> result = sqlContext.sql(
+//
+//                        "" +
+//                        "select " +
+//                        "count(*) " +
+//                        "from tb_topic_record " +
+//                        "group by subjectId,step,knowledgePoint");
+//
+//                result.show();
+//                return result.toJavaRDD();
+//            }
+//        });
+//        kp.print();
 
         jsc.start();
         jsc.awaitTermination();
@@ -170,7 +188,8 @@ public class RmqSparkStreaming {
 
     }
 
-    private static JavaDStream<Row> correctAnalyze(JavaDStream<String> topicRecord) {
+    private static JavaDStream<Row> userCorrectAnalyze(JavaDStream<String> topicRecord) {
+
         return topicRecord.transform(new Function<JavaRDD<String>, JavaRDD<Row>>() {
             @Override
             public JavaRDD<Row> call(JavaRDD<String> rdd) throws Exception {
@@ -256,6 +275,84 @@ public class RmqSparkStreaming {
 
                 result.show();
                 return result.toJavaRDD();
+            }
+        });
+    }
+
+    private static JavaDStream<Row> userTopicRecordRow(JavaDStream<String> topicRecord) {
+
+        return topicRecord.transform(new Function<JavaRDD<String>, JavaRDD<Row>>() {
+            @Override
+            public JavaRDD<Row> call(JavaRDD<String> rdd) throws Exception {
+
+                JavaRDD<Row> topicRecordRow = rdd.coalesce(1).map(new Function<String, Row>() {
+                    @Override
+                    public Row call(String info) throws Exception {
+
+                        //用户id
+                        Long userId = ValueUtil.parseStr2Long(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_USERID);
+                        //课件id
+                        Long courseWare_id = ValueUtil.parseStr2Long(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_COURSEWAREID);
+                        //课件类型
+                        Integer courseWare_type = ValueUtil.parseStr2Int(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_COURSEWARETYPE);
+                        //试题Id
+                        Long questionId = ValueUtil.parseStr2Long(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_QUESTIONID);
+                        //做题时长
+                        Long time = ValueUtil.parseStr2Long(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_TIME);
+                        //是否正确
+                        Integer correct = ValueUtil.parseStr2Int(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_CORRECT);
+                        //阶段
+                        Long step = ValueUtil.parseStr2Long(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_STEP);
+                        //科目
+                        Long subjectId = ValueUtil.parseStr2Long(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_SUBJECTID);
+                        //所属知识点
+                        String knowledgePoint = ValueUtil.parseStr2Str(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_KNOWLEDGEPOINT);
+                        //视频来源
+                        Integer questionSource = ValueUtil.parseStr2Int(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_QUESTIONSOURCE);
+                        //提交时间
+                        Long submitTime = ValueUtil.parseStr2Long(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_SUBMITTIME);
+                        String submitTimeDate = sdfYMD.format(new Date(submitTime));
+
+                        return RowFactory.create(userId,
+                                courseWare_id,
+                                courseWare_type,
+                                questionId,
+                                time,
+                                correct,
+                                step,
+                                subjectId,
+                                knowledgePoint,
+                                questionSource,
+                                submitTimeDate);
+                    }
+                });
+
+                StructType schema = DataTypes.createStructType(Arrays.asList(
+                        DataTypes.createStructField("userId", DataTypes.LongType, true),
+                        DataTypes.createStructField("courseWare_id", DataTypes.LongType, true),
+                        DataTypes.createStructField("courseWare_type", DataTypes.IntegerType, true),
+                        DataTypes.createStructField("questionId", DataTypes.LongType, true),
+                        DataTypes.createStructField("time", DataTypes.LongType, true),
+                        DataTypes.createStructField("correct", DataTypes.IntegerType, true),
+                        DataTypes.createStructField("step", DataTypes.LongType, true),
+                        DataTypes.createStructField("subjectId", DataTypes.LongType, true),
+                        DataTypes.createStructField("knowledgePoint", DataTypes.StringType, true),
+                        DataTypes.createStructField("questionSource", DataTypes.IntegerType, true),
+                        DataTypes.createStructField("submitTimeDate", DataTypes.StringType, true)
+                ));
+
+
+                SQLContext sqlContext = new SQLContext(rdd.context());
+
+                Dataset<Row> topicRecordDS = sqlContext.createDataFrame(topicRecordRow, schema);
+                topicRecordDS.registerTempTable("tb_topic_record");
+
+                sqlContext.udf().register("correctAnalyze", new TopicRecordAccuracyUDAF());
+                sqlContext.udf().register("courseWare2topic", new TopicRecordCourse2AccUDAF());
+                sqlContext.udf().register("knowledgePoint2topic", new TopicRecordKnowPointUDAF());
+                sqlContext.udf().register("itemNums", new TopicRecordItemNumsUDAF());
+
+                return topicRecordDS.toJavaRDD();
             }
         });
     }

@@ -1,14 +1,27 @@
 #!/bin/bash
-
+#lijunjie
 hdfs_path=hdfs://192.168.100.26:8020/sparkwork
+
+#jar_name
 jar_name=trmq2spark.jar
+
+#class_name
 class_name=com.li.mq.customizeinputstream.RmqSparkStreaming
+
+#spark_home
 spark_home=file:/usr/local/spark-2.1.0-bin-hadoop2.7
+
+#log_name
 log_name=log4j-flume.properties
+
+#deploy_mode
 deploy_mode=cluster
 
+#flume_home
 flume_home=file:/usr/local/apache-flume-1.6.0-bin/lib/
+
 cd /usr/local/apache-flume-1.6.0-bin/lib/
+
 flume_jars=""
 
 concat(){
