@@ -61,14 +61,6 @@ public class RmqSparkStreaming {
 //                .setMaster("local[2]")
                 .setAppName("RmqSparkStreaming");
 
-//        try {
-//            //重新编译后，删除streamingContext检查点文件
-//            Path path = new Path("/sparkstreaming/driversaved");
-//            fs.delete(path, true);
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-        //
         JavaStreamingContext jsc = JavaStreamingContext.getOrCreate("hdfs://192.168.100.26:8020/sparkstreaming/checkpoint/data", new Function0<JavaStreamingContext>() {
             @Override
             public JavaStreamingContext call() throws Exception {
