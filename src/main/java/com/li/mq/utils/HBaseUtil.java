@@ -288,52 +288,61 @@ public class HBaseUtil {
         return ac;
     }
 
-    public static void update(String table, AccuracyBean ac) throws Exception {
+    public static void update(String table, AccuracyBean newAc) throws Exception {
 
-        Long userId = ac.getUserId();
+        Long userId = newAc.getUserId();
         AccuracyBean acFromHbase = HBaseUtil.get(userId.toString());
 
+        if (acFromHbase != null && newAc != null) {
+            return;
+        }
         ////////////////
         Long correct = acFromHbase.getCorrect();
         Long error = acFromHbase.getError();
         Long sum = acFromHbase.getSum();
+        Long count = acFromHbase.getCount();
         Long averageAnswerTime = acFromHbase.getAverageAnswerTime();
         String courseCorrectAnalyze = acFromHbase.getCourseCorrectAnalyze();
         String knowledgePointCorrectAnalyze = acFromHbase.getKnowledgePointCorrectAnalyze();
         String itemNums = acFromHbase.getItemNums();
         String[] split = itemNums.split("\\|");
         //////////////////////////////
-        Long _correct = ac.getCorrect();
-        Long _error = ac.getError();
-        Long _sum = ac.getSum();
-        Long _averageAnswerTime = ac.getAverageAnswerTime();
-        String _courseCorrectAnalyze = ac.getCourseCorrectAnalyze();
-        String _knowledgePointCorrectAnalyze = ac.getKnowledgePointCorrectAnalyze();
-        String _itemNums = ac.getItemNums();
-        String[] _split = _itemNums.split("\\|");
-        _correct += correct;
-        _error += error;
-        _sum += sum;
-        double accuracy = new BigDecimal(_correct).divide(new BigDecimal(_sum), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
+        Long newCorrect = newAc.getCorrect();
+        Long newError = newAc.getError();
+        Long newSum = newAc.getSum();
+        Long newAverageAnswerTime = newAc.getAverageAnswerTime();
+        String newCourseCorrectAnalyze = newAc.getCourseCorrectAnalyze();
+        String newKnowledgePointCorrectAnalyze = newAc.getKnowledgePointCorrectAnalyze();
+        String newItemNums = newAc.getItemNums();
+        String[] newSplit = newItemNums.split("\\|");
+        Long newCount = newAc.getCount();
 
-        _knowledgePointCorrectAnalyze = kn(knowledgePointCorrectAnalyze, _knowledgePointCorrectAnalyze);
-        _courseCorrectAnalyze = cw(courseCorrectAnalyze, _courseCorrectAnalyze);
+        newCount += count;
+        newCorrect += correct;
+        newError += error;
+        newSum += sum;
+        newAverageAnswerTime += averageAnswerTime;
+        double accuracy = new BigDecimal(newCorrect).divide(new BigDecimal(newSum), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
 
-        _itemNums = "afterClass=" + (Long.parseLong(split[0].split("=")[1]) +
-                Long.parseLong(_split[0].split("=")[1])
+        newKnowledgePointCorrectAnalyze = kn(knowledgePointCorrectAnalyze, newKnowledgePointCorrectAnalyze);
+        newCourseCorrectAnalyze = cw(courseCorrectAnalyze, newCourseCorrectAnalyze);
+
+        newItemNums = "afterClass=" + (Long.parseLong(split[0].split("=")[1]) +
+                Long.parseLong(newSplit[0].split("=")[1])
         ) + "|middleClass=" + (Long.parseLong(split[1].split("=")[1]) +
-                Long.parseLong(_split[1].split("=")[1])) + "";
+                Long.parseLong(newSplit[1].split("=")[1])) + "";
 
-        ac.setCorrect(_correct);
-        ac.setError(_error);
-        ac.setSum(_sum);
-        ac.setAccuracy(accuracy);
-        ac.setCourseCorrectAnalyze(_courseCorrectAnalyze);
-        ac.setKnowledgePointCorrectAnalyze(_knowledgePointCorrectAnalyze);
-        ac.setItemNums(_itemNums);
+        newAc.setCorrect(newCorrect);
+        newAc.setError(newError);
+        newAc.setSum(newSum);
+        newAc.setAccuracy(accuracy);
+        newAc.setCourseCorrectAnalyze(newCourseCorrectAnalyze);
+        newAc.setKnowledgePointCorrectAnalyze(newKnowledgePointCorrectAnalyze);
+        newAc.setItemNums(newItemNums);
+        newAc.setAverageAnswerTime(newAverageAnswerTime);
+        newAc.setCount(newCount);
 
-
-        HBaseUtil.put2hbase(table, ac);
+        HBaseUtil.put2hbase(table, newAc);
     }
 
     private static String cw(String old, String now) {
