@@ -90,4 +90,19 @@ public class TopicRecordBean {
                 "|subjectId=" + subjectId +
                 "|step=" + step;
     }
+
+    public String toString2() {
+        return "topicRecord" +
+                "\t" + questionId +
+                "\t" + userId +
+                "\t" + time +
+                "\t" + correct +
+                "\t" + knowledgePoint +
+                "\t" + questionSource +
+                "\t" + courseWareId +
+                "\t" + courseWareType +
+                "\t" + submitTime +
+                "\t" + subjectId +
+                "\t" + step;
+    }
 }
