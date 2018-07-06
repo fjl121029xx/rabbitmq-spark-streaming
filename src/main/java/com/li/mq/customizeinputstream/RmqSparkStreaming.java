@@ -52,9 +52,8 @@ public class RmqSparkStreaming {
                 jsc.checkpoint("hdfs://192.168.100.26:8020/sparkstreaming/checkpoint/data");
 
                 JavaReceiverInputDStream<String> streamFromRamq = jsc.receiverStream(new RabbitmqReceiver());
-                streamFromRamq.repartition(3);
 
-                JavaPairDStream<Long, String> userId2info = streamFromRamq.mapPartitionsToPair(new PairFlatMapFunction<Iterator<String>, Long, String>() {
+                JavaPairDStream<Long, String> userId2info = streamFromRamq.repartition(18).mapPartitionsToPair(new PairFlatMapFunction<Iterator<String>, Long, String>() {
                     private static final long serialVersionUID = -6617001840669831420L;
 
                     @Override
@@ -238,7 +237,7 @@ public class RmqSparkStreaming {
     private static void save2hbase(JavaDStream<Row> topicResultResult) {
 
         //RDD可能是空
-        topicResultResult.foreachRDD(new VoidFunction<JavaRDD<Row>>() {
+        topicResultResult.repartition(18).foreachRDD(new VoidFunction<JavaRDD<Row>>() {
             private static final long serialVersionUID = -7137117405354559764L;
 
             @Override

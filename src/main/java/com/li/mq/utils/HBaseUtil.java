@@ -11,17 +11,20 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class HBaseUtil {
 
     private static Configuration conf = null;
     private static Connection connection;
 
-    private static final String ZK = "192.168.100.2,192.168.100.3,192.168.100.4";
-    private static final String CL = "2181";
-    private static final String DIR = "/hbase";
+    public static final String ZK = "192.168.100.2,192.168.100.3,192.168.100.4";
+    public static final String CL = "2181";
+    public static final String DIR = "/hbase";
 
     static {
 
@@ -173,12 +176,44 @@ public class HBaseUtil {
         Result result = table.get(get);
 
         List<Cell> cells = result.listCells();
+
+        Map<String, String> map = new HashMap<>();
         for (Cell c : cells) {
             byte[] qualifier = c.getQualifier();
             byte[] valueArray = c.getValueArray();
 
-            System.out.println(new String(qualifier) + ":" + new String(valueArray, c.getValueOffset(), c.getValueLength()));
+            map.put(new String(qualifier), new String(valueArray, c.getValueOffset(), c.getValueLength()));
         }
+        map.put("userId", "26");
+
+        Class<AccuracyBean> clazz = AccuracyBean.class;
+        AccuracyBean ac = clazz.newInstance();
+        System.out.println(map);
+        Method[] declaredMethods = clazz.getDeclaredMethods();
+        for (Method m : declaredMethods) {
+            String mName = m.getName();
+            if (mName.startsWith("set")) {
+
+                String set = mName.replace("set", "");
+                Class pType = m.getParameterTypes()[0];
+
+                String s1 = set.substring(0, 1).toLowerCase();
+                String s2 = set.substring(1, set.length());
+                if (pType.getName().equals("java.lang.Long")) {
+
+                    m.invoke(ac, Long.parseLong(map.get(s1 + s2)));
+                } else if (pType.getName().equals("java.lang.String")) {
+
+                    m.invoke(ac, map.get(s1 + s2));
+                } else if (pType.getName().equals("java.lang.Double")) {
+
+                    m.invoke(ac, Double.parseDouble(map.get(s1 + s2)));
+                }
+            }
+
+        }
+
+        System.out.println(ac);
 
         table.close();
     }
@@ -202,6 +237,76 @@ public class HBaseUtil {
 
 
 //        return null;
+    }
+
+    public static AccuracyBean get(String userId) throws Exception {
+
+        HTable table = new HTable(conf, AccuracyBean.TEST_HBASE_TABLE);
+        Get get = new Get(Bytes.toBytes(userId));
+        get.setMaxVersions(1);
+        Result result = table.get(get);
+
+        List<Cell> cells = result.listCells();
+
+        Map<String, String> map = new HashMap<>();
+        for (Cell c : cells) {
+            byte[] qualifier = c.getQualifier();
+            byte[] valueArray = c.getValueArray();
+
+            map.put(new String(qualifier), new String(valueArray, c.getValueOffset(), c.getValueLength()));
+        }
+        map.put("userId", userId);
+
+        Class<AccuracyBean> clazz = AccuracyBean.class;
+        AccuracyBean ac = clazz.newInstance();
+        System.out.println(map);
+        Method[] declaredMethods = clazz.getDeclaredMethods();
+        for (Method m : declaredMethods) {
+            String mName = m.getName();
+            if (mName.startsWith("set")) {
+
+                String set = mName.replace("set", "");
+                Class pType = m.getParameterTypes()[0];
+
+                String s1 = set.substring(0, 1).toLowerCase();
+                String s2 = set.substring(1, set.length());
+                if (pType.getName().equals("java.lang.Long")) {
+
+                    m.invoke(ac, Long.parseLong(map.get(s1 + s2)));
+                } else if (pType.getName().equals("java.lang.String")) {
+
+                    m.invoke(ac, map.get(s1 + s2));
+                } else if (pType.getName().equals("java.lang.Double")) {
+
+                    m.invoke(ac, Double.parseDouble(map.get(s1 + s2)));
+                }
+            }
+
+        }
+
+        table.close();
+
+        return ac;
+    }
+
+    public static void update(String table, AccuracyBean ac) throws Exception {
+
+        Long userId = ac.getUserId();
+        AccuracyBean acFromHbase = HBaseUtil.get(userId.toString());
+
+        Long correct = acFromHbase.getCorrect();
+        Long error = acFromHbase.getError();
+        Long sum = acFromHbase.getSum();
+        Long averageAnswerTime = acFromHbase.getAverageAnswerTime();
+
+
+        String courseCorrectAnalyze = acFromHbase.getCourseCorrectAnalyze();
+        String knowledgePointCorrectAnalyze = acFromHbase.getKnowledgePointCorrectAnalyze();
+        String itemNums = acFromHbase.getItemNums();
+
+
+
+
     }
 
     public static void put2hbase(String table, AccuracyBean ac) {
@@ -283,6 +388,104 @@ public class HBaseUtil {
     }
 
     public static void putAll2hbase(String table, List<AccuracyBean> accuracyList) {
+
+        try {
+
+            HTable _table = new HTable(conf, table);
+
+            String array[][] = new String[accuracyList.size()][AccuracyBean.class.getDeclaredFields().length];
+            int i = 0;
+            for (AccuracyBean ac : accuracyList) {
+
+                String[] row = new String[]{
+                        ac.getUserId().toString(),
+                        ac.getCorrect().toString(),
+                        ac.getError().toString(),
+                        ac.getSum().toString(),
+                        ac.getAccuracy().toString(),
+                        ac.getSubmitTime(),
+                        ac.getAverageAnswerTime().toString(),
+                        ac.getCourseCorrectAnalyze(),
+                        ac.getKnowledgePointCorrectAnalyze(),
+                        ac.getCount().toString()
+
+                };
+
+                array[i] = row;
+                i++;
+            }
+
+
+            List<Put> puts = new ArrayList<>();
+            List<Delete> deletes = new ArrayList<Delete>();
+
+            for (int j = 0; j < array.length; j++) {
+
+                String[] columns = array[j];
+                Delete delete = new Delete(Bytes.toBytes(columns[0]));
+                deletes.add(delete);
+
+
+                Put put = new Put(Bytes.toBytes(columns[0]));
+
+                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS),
+                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_CORRECT),
+                        Bytes.toBytes(columns[1]));
+
+                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS),
+                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_ERROR),
+                        Bytes.toBytes(columns[2]));
+
+                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS),
+                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_SUM),
+                        Bytes.toBytes(columns[3]));
+
+                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS),
+                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_ACCURACY),
+                        Bytes.toBytes(columns[4]));
+
+                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS),
+                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_SUBMITTIME),
+                        Bytes.toBytes(columns[5]));
+
+                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS),
+                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_AVERAGEANSWERTIME),
+                        Bytes.toBytes(columns[6]));
+
+                /**
+                 * 课件答题正确率
+                 */
+                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS2),
+                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_COURSEWARECORRECTANALYZE),
+                        Bytes.toBytes(columns[7]));
+
+                /**
+                 * 知识点答题正确率
+                 */
+                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS3),
+                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_KNOWLEDGEPOINTCORRECTANALYZE),
+                        Bytes.toBytes(columns[8]));
+
+                /**
+                 * 知识点答题正确率
+                 */
+                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS4),
+                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_COUNT),
+                        Bytes.toBytes(columns[9]));
+
+
+                puts.add(put);
+            }
+
+//            _table.delete(deletes);
+
+            _table.put(puts);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void putPartition2hbase(Configuration conf, String table, List<AccuracyBean> accuracyList) {
 
         try {
 
