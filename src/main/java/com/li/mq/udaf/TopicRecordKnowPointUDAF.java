@@ -1,5 +1,6 @@
 package com.li.mq.udaf;
 
+import com.li.mq.bean.AccuracyBean;
 import com.li.mq.constants.TopicRecordConstant;
 import com.li.mq.utils.ValueUtil;
 import org.apache.spark.sql.Row;
@@ -150,102 +151,10 @@ public class TopicRecordKnowPointUDAF extends UserDefinedAggregateFunction {
     @Override
     public void merge(MutableAggregationBuffer merger, Row row) {
 
-        //大聚合值
-        String knowledgePointAnalyzeInfo = merger.getString(0);
-        Map<String, String> mapMerger = new HashMap<>();
-        String[] cca1 = knowledgePointAnalyzeInfo.split("\\&\\&");
-        for (String s : cca1) {//大聚合
 
-            String knowledgePoint = ValueUtil.parseStr2Str(s, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_KNOWLEDGEPOINT);
-            if (knowledgePoint.equals("0_0_0,0,0")) {
-                continue;
-            }
-            mapMerger.put(knowledgePoint, s);
-        }
-        //本次聚合值
-        String knowledgePointAnalyzeInfoOther = row.getString(0);
-        Map<String, String> mapRow = new HashMap<>();
-        String[] cca2 = knowledgePointAnalyzeInfoOther.split("\\&\\&");
-        for (String s2 : cca2) {
-            String knowledgePoint = ValueUtil.parseStr2Str(s2, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_KNOWLEDGEPOINT);
-            if (knowledgePoint.equals("0_0_0,0,0")) {
-                continue;
-            }
-            mapRow.put(knowledgePoint, s2);
-        }
+        String kn = AccuracyBean.kn(merger.getString(0), row.getString(0));
 
-
-        Set<String> knowledgePointIdsMerge = mapMerger.keySet();
-        Set<String> knowledgePointIdsRow = mapRow.keySet();
-
-        Set<String> commonSet = new HashSet<>();
-        Set<String> tmp2 = new HashSet<>();
-        Set<String> mergeHaveSet = new HashSet<>();
-        Set<String> tmp4 = new HashSet<>();
-        Set<String> tmp5 = new HashSet<>();
-        Set<String> rowHaveSet = new HashSet<>();
-        Set<String> tmp7 = new HashSet<>();
-
-        //找出都有的
-        tmp2.addAll(knowledgePointIdsRow);
-        commonSet.addAll(knowledgePointIdsRow);
-        tmp7.addAll(knowledgePointIdsMerge);
-        tmp2.removeAll(tmp7);
-        commonSet.removeAll(tmp2);
-
-
-        StringBuilder upda = new StringBuilder();
-
-        for (String id : commonSet) {
-
-            String _knowledgePointAnalyzeInfo = mapMerger.get(id);
-            long knowledgePoint = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_KNOWLEDGEPOINT);
-            long correct = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
-            long error = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
-            long sum = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
-            long time = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_TOTALTIME);
-
-
-            String _knowledgePointAnalyzeInfoOther = mapRow.get(id);
-            long correctOther = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
-            long errorOther = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
-            long sumOther = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
-            long timeOther = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_TOTALTIME);
-
-            correct += correctOther;
-            error += errorOther;
-            sum += sumOther;
-            time += timeOther;
-            double accuracy = new BigDecimal(correct).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
-
-
-            upda.append("knowledgePoint=" + knowledgePoint + "|" +
-                    "correct=" + correct + "|" +
-                    "error=" + error + "|" +
-                    "sum=" + sum + "|" +
-                    "accuracy=" + accuracy + "|" +
-                    "totalTime=" + time).append("&&");
-        }
-
-
-        //找出merger有，row没有的
-        mergeHaveSet.addAll(knowledgePointIdsMerge);
-        tmp4.addAll(knowledgePointIdsRow);
-        mergeHaveSet.removeAll(tmp4);
-        for (String id : mergeHaveSet) {
-            upda.append(mapMerger.get(id)).append("&&");
-
-        }
-        //找出row有，merger没有的
-        tmp5.addAll(knowledgePointIdsMerge);
-        rowHaveSet.addAll(knowledgePointIdsRow);
-        rowHaveSet.removeAll(tmp5);
-        for (String id : rowHaveSet) {
-            upda.append(mapRow.get(id)).append("&&");
-        }
-
-
-        merger.update(0, upda.toString());
+        merger.update(0, kn);
 
     }
 

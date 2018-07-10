@@ -1,5 +1,6 @@
 package com.li.mq.udaf;
 
+import com.li.mq.bean.AccuracyBean;
 import com.li.mq.constants.TopicRecordConstant;
 import com.li.mq.utils.ValueUtil;
 import org.apache.spark.sql.Row;
@@ -146,98 +147,9 @@ public class TopicRecordCourse2AccUDAF extends UserDefinedAggregateFunction {
     @Override
     public void merge(MutableAggregationBuffer merger, Row row) {
 
+        String cw = AccuracyBean.cw(merger.getString(0), row.getString(0));
 
-        String courseCorrectAnalyzeInfo = merger.getString(0);
-        Map<String, String> mapMerger = new HashMap<>();
-        String[] cca1 = courseCorrectAnalyzeInfo.split("\\&\\&");
-        for (String s : cca1) {//大聚合
-
-            String courseWareId = ValueUtil.parseStr2Str(s, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_COURSEWAREID);
-            if (courseWareId.startsWith("0_")) {
-                continue;
-            }
-            mapMerger.put(courseWareId, s);
-        }
-
-        String courseCorrectAnalyzeInfoOther = row.getString(0);
-        Map<String, String> mapRow = new HashMap<>();
-        String[] cca2 = courseCorrectAnalyzeInfoOther.split("\\&\\&");
-        for (String s2 : cca2) {
-            String courseWareId = ValueUtil.parseStr2Str(s2, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_COURSEWAREID);
-            if (courseWareId.startsWith("0_")) {
-                continue;
-            }
-            mapMerger.put(courseWareId, s2);
-        }
-
-
-        Set<String> courseWareIdsMerge = mapMerger.keySet();
-        Set<String> courseWareIdsRow = mapRow.keySet();
-
-        Set<String> commonSet = new HashSet<>();
-        Set<String> tmp2 = new HashSet<>();
-        Set<String> mergeHaveSet = new HashSet<>();
-        Set<String> tmp4 = new HashSet<>();
-        Set<String> tmp5 = new HashSet<>();
-        Set<String> rowHaveSet = new HashSet<>();
-
-        //找出都有的
-
-        tmp2 = courseWareIdsRow;
-        commonSet = courseWareIdsRow;
-        tmp2.removeAll(courseWareIdsMerge);
-        commonSet.removeAll(tmp2);
-
-
-        StringBuilder upda = new StringBuilder();
-
-        for (String id : commonSet) {
-
-            String _courseCorrectAnalyzeInfo = mapMerger.get(id);
-            long courseWareId = ValueUtil.parseStr2Long(_courseCorrectAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_COURSEWAREID);
-            long correct = ValueUtil.parseStr2Long(_courseCorrectAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
-            long error = ValueUtil.parseStr2Long(_courseCorrectAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
-            long sum = ValueUtil.parseStr2Long(_courseCorrectAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
-
-
-            String _courseCorrectAnalyzeInfoOther = mapRow.get(id);
-            long correctOther = ValueUtil.parseStr2Long(_courseCorrectAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
-            long errorOther = ValueUtil.parseStr2Long(_courseCorrectAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
-            long sumOther = ValueUtil.parseStr2Long(_courseCorrectAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
-
-            correct += correctOther;
-            error += errorOther;
-            sum += sumOther;
-
-            double accuracy = new BigDecimal(correct).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
-
-
-            upda.append("courseWareId=" + courseWareId + "|" +
-                    "correct=" + correct + "|" +
-                    "error=" + error + "|" +
-                    "sum=" + sum + "|" +
-                    "accuracy=" + accuracy + "").append("&&");
-        }
-
-
-        //找出merger有，row没有的
-        mergeHaveSet = courseWareIdsMerge;
-        tmp4 = courseWareIdsRow;
-        mergeHaveSet.removeAll(tmp4);
-        for (String id : mergeHaveSet) {
-            upda.append(mapMerger.get(id)).append("&&");
-
-        }
-        //找出row有，merger没有的
-        tmp5 = courseWareIdsMerge;
-        rowHaveSet = courseWareIdsRow;
-        rowHaveSet.removeAll(tmp5);
-        for (String id : rowHaveSet) {
-            upda.append(mapRow.get(id)).append("&&");
-        }
-
-
-        merger.update(0, upda.toString());
+        merger.update(0, cw);
 
     }
 

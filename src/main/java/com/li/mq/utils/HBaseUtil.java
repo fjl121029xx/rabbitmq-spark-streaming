@@ -170,11 +170,14 @@ public class HBaseUtil {
         //HTablePool pool = new HTablePool(conf, 10);
         //HTable table = (HTable) pool.getTable("user");
         HTable table = new HTable(conf, "test_tr_accuracy_analyze2");
-        Get get = new Get(Bytes.toBytes("26"));
+        Get get = new Get(Bytes.toBytes("1"));
         get.setMaxVersions(1);
         Result result = table.get(get);
 
         List<Cell> cells = result.listCells();
+        if (cells == null || cells.size() < 1) {
+            return;
+        }
 
         Map<String, String> map = new HashMap<>();
         for (Cell c : cells) {
@@ -183,7 +186,7 @@ public class HBaseUtil {
 
             map.put(new String(qualifier), new String(valueArray, c.getValueOffset(), c.getValueLength()));
         }
-        map.put("userId", "26");
+        map.put("userId", "1");
 
         Class<AccuracyBean> clazz = AccuracyBean.class;
         AccuracyBean ac = clazz.newInstance();
@@ -246,7 +249,10 @@ public class HBaseUtil {
         Result result = table.get(get);
 
         List<Cell> cells = result.listCells();
+        if (cells == null || cells.size() < 1) {
 
+            return null;
+        }
         Map<String, String> map = new HashMap<>();
         for (Cell c : cells) {
             byte[] qualifier = c.getQualifier();
@@ -258,7 +264,7 @@ public class HBaseUtil {
 
         Class<AccuracyBean> clazz = AccuracyBean.class;
         AccuracyBean ac = clazz.newInstance();
-        System.out.println(map);
+//        System.out.println(map);
         Method[] declaredMethods = clazz.getDeclaredMethods();
         for (Method m : declaredMethods) {
             String mName = m.getName();
@@ -288,13 +294,14 @@ public class HBaseUtil {
         return ac;
     }
 
-    public static void update(String table, AccuracyBean newAc) throws Exception {
+    public static AccuracyBean update(String table, AccuracyBean newAc) throws Exception {
 
         Long userId = newAc.getUserId();
         AccuracyBean acFromHbase = HBaseUtil.get(userId.toString());
 
-        if (acFromHbase != null && newAc != null) {
-            return;
+        if (acFromHbase == null) {
+//            put2hbase(table, newAc);
+            return newAc;
         }
         ////////////////
         Long correct = acFromHbase.getCorrect();
@@ -302,7 +309,7 @@ public class HBaseUtil {
         Long sum = acFromHbase.getSum();
         Long count = acFromHbase.getCount();
         Long averageAnswerTime = acFromHbase.getAverageAnswerTime();
-        String courseCorrectAnalyze = acFromHbase.getCourseCorrectAnalyze();
+        String courseCorrectAnalyze = acFromHbase.getCourseWareCorrectAnalyze();
         String knowledgePointCorrectAnalyze = acFromHbase.getKnowledgePointCorrectAnalyze();
         String itemNums = acFromHbase.getItemNums();
         String[] split = itemNums.split("\\|");
@@ -311,7 +318,7 @@ public class HBaseUtil {
         Long newError = newAc.getError();
         Long newSum = newAc.getSum();
         Long newAverageAnswerTime = newAc.getAverageAnswerTime();
-        String newCourseCorrectAnalyze = newAc.getCourseCorrectAnalyze();
+        String newCourseCorrectAnalyze = newAc.getCourseWareCorrectAnalyze();
         String newKnowledgePointCorrectAnalyze = newAc.getKnowledgePointCorrectAnalyze();
         String newItemNums = newAc.getItemNums();
         String[] newSplit = newItemNums.split("\\|");
@@ -324,8 +331,8 @@ public class HBaseUtil {
         newAverageAnswerTime += averageAnswerTime;
         double accuracy = new BigDecimal(newCorrect).divide(new BigDecimal(newSum), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
 
-        newKnowledgePointCorrectAnalyze = kn(knowledgePointCorrectAnalyze, newKnowledgePointCorrectAnalyze);
-        newCourseCorrectAnalyze = cw(courseCorrectAnalyze, newCourseCorrectAnalyze);
+        newKnowledgePointCorrectAnalyze = AccuracyBean.kn(knowledgePointCorrectAnalyze, newKnowledgePointCorrectAnalyze);
+        newCourseCorrectAnalyze = AccuracyBean.cw(courseCorrectAnalyze, newCourseCorrectAnalyze);
 
         newItemNums = "afterClass=" + (Long.parseLong(split[0].split("=")[1]) +
                 Long.parseLong(newSplit[0].split("=")[1])
@@ -336,210 +343,17 @@ public class HBaseUtil {
         newAc.setError(newError);
         newAc.setSum(newSum);
         newAc.setAccuracy(accuracy);
-        newAc.setCourseCorrectAnalyze(newCourseCorrectAnalyze);
+        newAc.setCourseWareCorrectAnalyze(newCourseCorrectAnalyze);
         newAc.setKnowledgePointCorrectAnalyze(newKnowledgePointCorrectAnalyze);
         newAc.setItemNums(newItemNums);
         newAc.setAverageAnswerTime(newAverageAnswerTime);
         newAc.setCount(newCount);
 
-        HBaseUtil.put2hbase(table, newAc);
+//        HBaseUtil.put2hbase(table, newAc);
+
+        return newAc;
     }
 
-    private static String cw(String old, String now) {
-
-        String courseCorrectAnalyzeInfo = old;
-        Map<String, String> mapMerger = new HashMap<>();
-        String[] cca1 = courseCorrectAnalyzeInfo.split("\\&\\&");
-        for (String s : cca1) {//大聚合
-
-            String courseWareId = ValueUtil.parseStr2Str(s, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_COURSEWAREID);
-            if (courseWareId.startsWith("0_")) {
-                continue;
-            }
-            mapMerger.put(courseWareId, s);
-        }
-
-        String courseCorrectAnalyzeInfoOther = now;
-        Map<String, String> mapRow = new HashMap<>();
-        String[] cca2 = courseCorrectAnalyzeInfoOther.split("\\&\\&");
-        for (String s2 : cca2) {
-            String courseWareId = ValueUtil.parseStr2Str(s2, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_COURSEWAREID);
-            if (courseWareId.startsWith("0_")) {
-                continue;
-            }
-            mapMerger.put(courseWareId, s2);
-        }
-
-
-        Set<String> courseWareIdsMerge = mapMerger.keySet();
-        Set<String> courseWareIdsRow = mapRow.keySet();
-
-        Set<String> commonSet = new HashSet<>();
-        Set<String> tmp2 = new HashSet<>();
-        Set<String> mergeHaveSet = new HashSet<>();
-        Set<String> tmp4 = new HashSet<>();
-        Set<String> tmp5 = new HashSet<>();
-        Set<String> rowHaveSet = new HashSet<>();
-
-        //找出都有的
-
-        tmp2 = courseWareIdsRow;
-        commonSet = courseWareIdsRow;
-        tmp2.removeAll(courseWareIdsMerge);
-        commonSet.removeAll(tmp2);
-
-
-        StringBuilder upda = new StringBuilder();
-
-        for (String id : commonSet) {
-
-            String _courseCorrectAnalyzeInfo = mapMerger.get(id);
-            long courseWareId = ValueUtil.parseStr2Long(_courseCorrectAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_COURSEWAREID);
-            long correct = ValueUtil.parseStr2Long(_courseCorrectAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
-            long error = ValueUtil.parseStr2Long(_courseCorrectAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
-            long sum = ValueUtil.parseStr2Long(_courseCorrectAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
-
-
-            String _courseCorrectAnalyzeInfoOther = mapRow.get(id);
-            long correctOther = ValueUtil.parseStr2Long(_courseCorrectAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
-            long errorOther = ValueUtil.parseStr2Long(_courseCorrectAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
-            long sumOther = ValueUtil.parseStr2Long(_courseCorrectAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
-
-            correct += correctOther;
-            error += errorOther;
-            sum += sumOther;
-
-            double accuracy = new BigDecimal(correct).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
-
-
-            upda.append("courseWareId=" + courseWareId + "|" +
-                    "correct=" + correct + "|" +
-                    "error=" + error + "|" +
-                    "sum=" + sum + "|" +
-                    "accuracy=" + accuracy + "").append("&&");
-        }
-
-
-        //找出merger有，row没有的
-        mergeHaveSet = courseWareIdsMerge;
-        tmp4 = courseWareIdsRow;
-        mergeHaveSet.removeAll(tmp4);
-        for (String id : mergeHaveSet) {
-            upda.append(mapMerger.get(id)).append("&&");
-
-        }
-        //找出row有，merger没有的
-        tmp5 = courseWareIdsMerge;
-        rowHaveSet = courseWareIdsRow;
-        rowHaveSet.removeAll(tmp5);
-        for (String id : rowHaveSet) {
-            upda.append(mapRow.get(id)).append("&&");
-        }
-
-
-        return upda.toString();
-    }
-
-    private static String kn(String old, String now) {
-
-
-        //大聚合值
-        String knowledgePointAnalyzeInfo = old;
-        Map<String, String> mapMerger = new HashMap<>();
-        String[] cca1 = knowledgePointAnalyzeInfo.split("\\&\\&");
-        for (String s : cca1) {//大聚合
-
-            String knowledgePoint = ValueUtil.parseStr2Str(s, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_KNOWLEDGEPOINT);
-            if (knowledgePoint.equals("0_0_0,0,0")) {
-                continue;
-            }
-            mapMerger.put(knowledgePoint, s);
-        }
-        //本次聚合值
-        String knowledgePointAnalyzeInfoOther = now;
-        Map<String, String> mapRow = new HashMap<>();
-        String[] cca2 = knowledgePointAnalyzeInfoOther.split("\\&\\&");
-        for (String s2 : cca2) {
-            String knowledgePoint = ValueUtil.parseStr2Str(s2, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_KNOWLEDGEPOINT);
-            if (knowledgePoint.equals("0_0_0,0,0")) {
-                continue;
-            }
-            mapRow.put(knowledgePoint, s2);
-        }
-
-
-        Set<String> knowledgePointIdsMerge = mapMerger.keySet();
-        Set<String> knowledgePointIdsRow = mapRow.keySet();
-
-        Set<String> commonSet = new HashSet<>();
-        Set<String> tmp2 = new HashSet<>();
-        Set<String> mergeHaveSet = new HashSet<>();
-        Set<String> tmp4 = new HashSet<>();
-        Set<String> tmp5 = new HashSet<>();
-        Set<String> rowHaveSet = new HashSet<>();
-        Set<String> tmp7 = new HashSet<>();
-
-        //找出都有的
-        tmp2.addAll(knowledgePointIdsRow);
-        commonSet.addAll(knowledgePointIdsRow);
-        tmp7.addAll(knowledgePointIdsMerge);
-        tmp2.removeAll(tmp7);
-        commonSet.removeAll(tmp2);
-
-
-        StringBuilder upda = new StringBuilder();
-
-        for (String id : commonSet) {
-
-            String _knowledgePointAnalyzeInfo = mapMerger.get(id);
-            long knowledgePoint = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_KNOWLEDGEPOINT);
-            long correct = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
-            long error = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
-            long sum = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
-            long time = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_TOTALTIME);
-
-
-            String _knowledgePointAnalyzeInfoOther = mapRow.get(id);
-            long correctOther = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
-            long errorOther = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
-            long sumOther = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
-            long timeOther = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_TOTALTIME);
-
-            correct += correctOther;
-            error += errorOther;
-            sum += sumOther;
-            time += timeOther;
-            double accuracy = new BigDecimal(correct).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
-
-
-            upda.append("knowledgePoint=" + knowledgePoint + "|" +
-                    "correct=" + correct + "|" +
-                    "error=" + error + "|" +
-                    "sum=" + sum + "|" +
-                    "accuracy=" + accuracy + "|" +
-                    "totalTime=" + time).append("&&");
-        }
-
-
-        //找出merger有，row没有的
-        mergeHaveSet.addAll(knowledgePointIdsMerge);
-        tmp4.addAll(knowledgePointIdsRow);
-        mergeHaveSet.removeAll(tmp4);
-        for (String id : mergeHaveSet) {
-            upda.append(mapMerger.get(id)).append("&&");
-
-        }
-        //找出row有，merger没有的
-        tmp5.addAll(knowledgePointIdsMerge);
-        rowHaveSet.addAll(knowledgePointIdsRow);
-        rowHaveSet.removeAll(tmp5);
-        for (String id : rowHaveSet) {
-            upda.append(mapRow.get(id)).append("&&");
-        }
-
-
-        return upda.toString();
-    }
 
     public static void put2hbase(String table, AccuracyBean ac) {
 
@@ -554,7 +368,7 @@ public class HBaseUtil {
                     ac.getAccuracy().toString(),
                     ac.getSubmitTime(),
                     ac.getAverageAnswerTime().toString(),
-                    ac.getCourseCorrectAnalyze(),
+                    ac.getCourseWareCorrectAnalyze(),
                     ac.getKnowledgePointCorrectAnalyze(),
                     ac.getCount().toString(),
                     ac.getItemNums()};
@@ -619,7 +433,7 @@ public class HBaseUtil {
         }
     }
 
-    public static void putAll2hbase(String table, List<AccuracyBean> accuracyList) {
+    public static void putAll2hbase(Configuration conf, String table, List<AccuracyBean> accuracyList) throws Exception {
 
         try {
 
@@ -629,6 +443,10 @@ public class HBaseUtil {
             int i = 0;
             for (AccuracyBean ac : accuracyList) {
 
+
+                ac = update(table, ac);
+
+
                 String[] row = new String[]{
                         ac.getUserId().toString(),
                         ac.getCorrect().toString(),
@@ -637,9 +455,10 @@ public class HBaseUtil {
                         ac.getAccuracy().toString(),
                         ac.getSubmitTime(),
                         ac.getAverageAnswerTime().toString(),
-                        ac.getCourseCorrectAnalyze(),
+                        ac.getCourseWareCorrectAnalyze(),
                         ac.getKnowledgePointCorrectAnalyze(),
-                        ac.getCount().toString()
+                        ac.getCount().toString(),
+                        ac.getItemNums()
 
                 };
 
@@ -704,7 +523,12 @@ public class HBaseUtil {
                 put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS4),
                         Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_COUNT),
                         Bytes.toBytes(columns[9]));
-
+                /**
+                 * 课后课中做题数量
+                 */
+                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS),
+                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_ITEMNUMS),
+                        Bytes.toBytes(columns[10]));
 
                 puts.add(put);
             }
@@ -717,105 +541,7 @@ public class HBaseUtil {
         }
     }
 
-    public static void putPartition2hbase(Configuration conf, String table, List<AccuracyBean> accuracyList) {
 
-        try {
-
-            HTable _table = new HTable(conf, table);
-
-            String array[][] = new String[accuracyList.size()][AccuracyBean.class.getDeclaredFields().length];
-            int i = 0;
-            for (AccuracyBean ac : accuracyList) {
-
-                String[] row = new String[]{
-                        ac.getUserId().toString(),
-                        ac.getCorrect().toString(),
-                        ac.getError().toString(),
-                        ac.getSum().toString(),
-                        ac.getAccuracy().toString(),
-                        ac.getSubmitTime(),
-                        ac.getAverageAnswerTime().toString(),
-                        ac.getCourseCorrectAnalyze(),
-                        ac.getKnowledgePointCorrectAnalyze(),
-                        ac.getCount().toString()
-
-                };
-
-                array[i] = row;
-                i++;
-            }
-
-
-            List<Put> puts = new ArrayList<>();
-            List<Delete> deletes = new ArrayList<Delete>();
-
-            for (int j = 0; j < array.length; j++) {
-
-                String[] columns = array[j];
-                Delete delete = new Delete(Bytes.toBytes(columns[0]));
-                deletes.add(delete);
-
-
-                Put put = new Put(Bytes.toBytes(columns[0]));
-
-                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS),
-                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_CORRECT),
-                        Bytes.toBytes(columns[1]));
-
-                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS),
-                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_ERROR),
-                        Bytes.toBytes(columns[2]));
-
-                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS),
-                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_SUM),
-                        Bytes.toBytes(columns[3]));
-
-                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS),
-                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_ACCURACY),
-                        Bytes.toBytes(columns[4]));
-
-                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS),
-                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_SUBMITTIME),
-                        Bytes.toBytes(columns[5]));
-
-                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS),
-                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_AVERAGEANSWERTIME),
-                        Bytes.toBytes(columns[6]));
-
-                /**
-                 * 课件答题正确率
-                 */
-                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS2),
-                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_COURSEWARECORRECTANALYZE),
-                        Bytes.toBytes(columns[7]));
-
-                /**
-                 * 知识点答题正确率
-                 */
-                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS3),
-                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_KNOWLEDGEPOINTCORRECTANALYZE),
-                        Bytes.toBytes(columns[8]));
-
-                /**
-                 * 知识点答题正确率
-                 */
-                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS4),
-                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_COUNT),
-                        Bytes.toBytes(columns[9]));
-
-
-                puts.add(put);
-            }
-
-//            _table.delete(deletes);
-
-            _table.put(puts);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-//    public static void main(String[] args) {
 //
 //        System.out.println(AccuracyBean.class.getDeclaredFields().length);
 //    }

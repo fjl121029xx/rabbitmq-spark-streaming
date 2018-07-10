@@ -8,6 +8,10 @@ import com.li.mq.udaf.TopicRecordItemNumsUDAF;
 import com.li.mq.udaf.TopicRecordKnowPointUDAF;
 import com.li.mq.utils.HBaseUtil;
 import com.li.mq.utils.ValueUtil;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.HBaseConfiguration;
+import org.apache.hadoop.hbase.client.Connection;
+import org.apache.spark.Partition;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.Optional;
@@ -53,80 +57,13 @@ public class RmqSparkStreaming {
 
                 JavaReceiverInputDStream<String> streamFromRamq = jsc.receiverStream(new RabbitmqReceiver());
 
-                JavaPairDStream<Long, String> userId2info = streamFromRamq.repartition(18).mapPartitionsToPair(new PairFlatMapFunction<Iterator<String>, Long, String>() {
-                    private static final long serialVersionUID = -6617001840669831420L;
-
-                    @Override
-                    public Iterator<Tuple2<Long, String>> call(Iterator<String> strite) {
-                        List<Tuple2<Long, String>> list = new ArrayList<>();
-
-                        while (strite.hasNext()) {
-
-                            String str = strite.next();
-
-                            String[] fields = str.split("\\|");
-
-                            String userid_str = fields[0];
-
-                            String userid = userid_str.split("=")[1];
-
-                            StringBuilder info = new StringBuilder();
-                            for (String field : fields) {
-                                info.append(field).append("|");
-                            }
-                            info.deleteCharAt(info.length() - 1);
-
-                            list.add(new Tuple2<>(Long.parseLong(userid), info.toString()));
-                        }
-
-                        return list.iterator();
-                    }
-                });
+                //使用updateBystate
+//                JavaDStream<String> topicRecord = topicRecordUseState(streamFromRamq);
+//                JavaDStream<Row> userCorrectAnalyzeResult = userCorrectAnalyze(topicRecord);
+//                JavaDStream<String> repartition = streamFromRamq.repartition(18);
+                JavaDStream<Row> userCorrectAnalyzeResult = userCorrectAnalyze(streamFromRamq);
 
 
-                JavaPairDStream<Long, String> userid2infolist = userId2info.updateStateByKey(new Function2<List<String>, Optional<String>, Optional<String>>() {
-
-                    private static final long serialVersionUID = -589467485514528883L;
-
-                    @Override
-                    public Optional<String> call(List<String> nowinfolist, Optional<String> original) {
-
-                        StringBuffer sb;
-                        if (original.isPresent()) {
-                            sb = new StringBuffer(original.get());
-                        } else {
-                            original = Optional.of("");
-                            sb = new StringBuffer(original.get());
-                        }
-
-                        for (String info : nowinfolist) {
-
-                            sb.append(info).append("&");
-                        }
-
-                        char end = sb.charAt(sb.length() - 1);
-                        if (end == '&') {
-                            sb.deleteCharAt(sb.length() - 1);
-                        }
-
-                        return Optional.of(sb.toString());
-                    }
-                });
-
-                JavaDStream<String> topicRecord = userid2infolist.flatMap(new FlatMapFunction<Tuple2<Long, String>, String>() {
-                    private static final long serialVersionUID = 8848139165139204120L;
-
-                    @Override
-                    public Iterator<String> call(Tuple2<Long, String> t) {
-
-                        return Arrays.asList(t._2.split("&")).iterator();
-                    }
-                });
-
-                topicRecord.cache();
-
-                //用户维度下的做题正确率
-                JavaDStream<Row> userCorrectAnalyzeResult = userCorrectAnalyze(topicRecord);
                 save2hbase(userCorrectAnalyzeResult);
 
                 return jsc;
@@ -141,7 +78,81 @@ public class RmqSparkStreaming {
 
     }
 
+    private static JavaDStream<String> topicRecordUseState(JavaReceiverInputDStream<String> streamFromRamq) {
+
+        JavaPairDStream<Long, String> userId2info = streamFromRamq.mapPartitionsToPair(new PairFlatMapFunction<Iterator<String>, Long, String>() {
+            private static final long serialVersionUID = -6617001840669831420L;
+
+            @Override
+            public Iterator<Tuple2<Long, String>> call(Iterator<String> strite) {
+                List<Tuple2<Long, String>> list = new ArrayList<>();
+
+                while (strite.hasNext()) {
+
+                    String str = strite.next();
+
+                    String[] fields = str.split("\\|");
+
+                    String userid_str = fields[0];
+
+                    String userid = userid_str.split("=")[1];
+
+                    StringBuilder info = new StringBuilder();
+                    for (String field : fields) {
+                        info.append(field).append("|");
+                    }
+                    info.deleteCharAt(info.length() - 1);
+
+                    list.add(new Tuple2<>(Long.parseLong(userid), info.toString()));
+                }
+
+                return list.iterator();
+            }
+        });
+
+
+        JavaPairDStream<Long, String> userid2infolist = userId2info.updateStateByKey(new Function2<List<String>, Optional<String>, Optional<String>>() {
+
+            private static final long serialVersionUID = -589467485514528883L;
+
+            @Override
+            public Optional<String> call(List<String> nowinfolist, Optional<String> original) {
+
+                StringBuffer sb;
+                if (original.isPresent()) {
+                    sb = new StringBuffer(original.get());
+                } else {
+                    original = Optional.of("");
+                    sb = new StringBuffer(original.get());
+                }
+
+                for (String info : nowinfolist) {
+
+                    sb.append(info).append("&");
+                }
+
+                char end = sb.charAt(sb.length() - 1);
+                if (end == '&') {
+                    sb.deleteCharAt(sb.length() - 1);
+                }
+
+                return Optional.of(sb.toString());
+            }
+        });
+
+        return userid2infolist.flatMap(new FlatMapFunction<Tuple2<Long, String>, String>() {
+            private static final long serialVersionUID = 8848139165139204120L;
+
+            @Override
+            public Iterator<String> call(Tuple2<Long, String> t) {
+
+                return Arrays.asList(t._2.split("&")).iterator();
+            }
+        });
+    }
+
     private static JavaDStream<Row> userCorrectAnalyze(JavaDStream<String> topicRecord) {
+
 
         return topicRecord.transform(new Function<JavaRDD<String>, JavaRDD<Row>>() {
             private static final long serialVersionUID = -8245984755258578477L;
@@ -149,13 +160,14 @@ public class RmqSparkStreaming {
             @Override
             public JavaRDD<Row> call(JavaRDD<String> rdd) {
 
-                JavaRDD<Row> topicRecordRow = rdd.coalesce(1).map(new Function<String, Row>() {
+                JavaRDD<Row> topicRecordRow = rdd.map(new Function<String, Row>() {
                     private static final long serialVersionUID = 2779039954930815042L;
 
                     @Override
                     public Row call(String info) {
 
                         //用户id
+
                         Long userId = ValueUtil.parseStr2Long(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_USERID);
                         //课件id
                         Long courseWare_id = ValueUtil.parseStr2Long(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_COURSEWAREID);
@@ -229,7 +241,7 @@ public class RmqSparkStreaming {
                         "from tb_topic_record " +
                         "group by userId");
 
-                return result.toJavaRDD();
+                return result.repartition(18).toJavaRDD();
             }
         });
     }
@@ -237,62 +249,131 @@ public class RmqSparkStreaming {
     private static void save2hbase(JavaDStream<Row> topicResultResult) {
 
         //RDD可能是空
-        topicResultResult.repartition(18).foreachRDD(new VoidFunction<JavaRDD<Row>>() {
+        topicResultResult.foreachRDD(new VoidFunction<JavaRDD<Row>>() {
             private static final long serialVersionUID = -7137117405354559764L;
 
             @Override
             public void call(JavaRDD<Row> rdd) {
 
-                if (!rdd.partitions().isEmpty()) {
+                rdd.foreachPartition(new VoidFunction<Iterator<Row>>() {
+                    @Override
+                    public void call(Iterator<Row> rowIte) throws Exception {
 
-                    rdd.coalesce(1).foreach(new VoidFunction<Row>() {
-
-                        private static final long serialVersionUID = -1902947152008699620L;
-
-                        @Override
-                        public void call(Row rowRecord) {
-
-                            long userId = rowRecord.getLong(0);
-                            String userCorrectAnalyze = rowRecord.getString(1);
-                            String courseCorrectAnalyze = rowRecord.getString(2);
-                            String knowledgePointAnalyze = rowRecord.getString(3);
-                            long count = rowRecord.getLong(4);
-                            String itemNums = rowRecord.getString(5);
-
-                            Long correct = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
-                            Long error = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
-                            Long sum = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
-                            Double accuracy = ValueUtil.parseStr2Dou(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ACCURACY);
-                            String submitTimeDate = ValueUtil.parseStr2Str(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUBMITTIMEDATE);
-                            Long averageAnswerTime = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_AVERAGEANSWERTIME);
-
-                            averageAnswerTime = new BigDecimal(averageAnswerTime).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).longValue();
+                        Configuration conf = HBaseConfiguration.create();
+                        conf.set("hbase.zookeeper.quorum", HBaseUtil.ZK);
+                        conf.set("hbase.zookeeper.property.clientPort", HBaseUtil.CL);
+                        conf.set("hbase.rootdir", HBaseUtil.DIR);
 
 
-                            AccuracyBean ac = new AccuracyBean();
-                            ac.setUserId(userId);
-                            ac.setSubmitTime(submitTimeDate);
+                        List<AccuracyBean> acs = new ArrayList<>();
 
+                        while (rowIte.hasNext()) {
 
-                            ac.setAverageAnswerTime(averageAnswerTime);
-                            ac.setCorrect(correct);
-                            ac.setError(error);
-                            ac.setSum(sum);
-                            ac.setAccuracy(accuracy);
-                            // 当前用户每个课件答题正确率
-                            ac.setCourseCorrectAnalyze(courseCorrectAnalyze);
-                            // 当前用户每个知识点答题正确率
-                            ac.setKnowledgePointCorrectAnalyze(knowledgePointAnalyze);
-                            // count
-                            ac.setCount(count);
-
-                            ac.setItemNums(itemNums);
-
-                            HBaseUtil.put2hbase(AccuracyBean.TEST_HBASE_TABLE, ac);
+                            Row row = rowIte.next();
+                            AccuracyBean ac = row2Accuracy(row);
+                            acs.add(ac);
                         }
-                    });
-                }
+
+                        HBaseUtil.putAll2hbase(conf,AccuracyBean.TEST_HBASE_TABLE, acs);
+//                        System.out.println(acs.size());
+                    }
+                });
+
+//                        rdd.foreach(new VoidFunction<Row>() {
+//
+//                    private static final long serialVersionUID = -1902947152008699620L;
+//
+//                    @Override
+//                    public void call(Row rowRecord) throws Exception {
+//
+//
+//                        foreachRDD(rowRecord);
+//                    }
+//                });
             }
         });
+    }
+
+
+    public static void foreachRDD(Row rowRecord) throws Exception {
+        long userId = rowRecord.getLong(0);
+        String userCorrectAnalyze = rowRecord.getString(1);
+        String courseCorrectAnalyze = rowRecord.getString(2);
+        String knowledgePointAnalyze = rowRecord.getString(3);
+        long count = rowRecord.getLong(4);
+        String itemNums = rowRecord.getString(5);
+
+        Long correct = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
+        Long error = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
+        Long sum = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
+        Double accuracy = ValueUtil.parseStr2Dou(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ACCURACY);
+        String submitTimeDate = ValueUtil.parseStr2Str(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUBMITTIMEDATE);
+        Long averageAnswerTime = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_AVERAGEANSWERTIME);
+
+        averageAnswerTime = new BigDecimal(averageAnswerTime).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).longValue();
+
+
+        AccuracyBean ac = new AccuracyBean();
+        ac.setUserId(userId);
+        ac.setSubmitTime(submitTimeDate);
+
+
+        ac.setAverageAnswerTime(averageAnswerTime);
+        ac.setCorrect(correct);
+        ac.setError(error);
+        ac.setSum(sum);
+        ac.setAccuracy(accuracy);
+        // 当前用户每个课件答题正确率
+        ac.setCourseWareCorrectAnalyze(courseCorrectAnalyze);
+        // 当前用户每个知识点答题正确率
+        ac.setKnowledgePointCorrectAnalyze(knowledgePointAnalyze);
+        // count
+        ac.setCount(count);
+
+        ac.setItemNums(itemNums);
+
+//                            HBaseUtil.put2hbase(AccuracyBean.TEST_HBASE_TABLE, ac);
+        HBaseUtil.update(AccuracyBean.TEST_HBASE_TABLE, ac);
+    }
+
+    public static AccuracyBean row2Accuracy(Row accuracyRow) {
+
+        long userId = accuracyRow.getLong(0);
+        String userCorrectAnalyze = accuracyRow.getString(1);
+        String courseCorrectAnalyze = accuracyRow.getString(2);
+        String knowledgePointAnalyze = accuracyRow.getString(3);
+        long count = accuracyRow.getLong(4);
+        String itemNums = accuracyRow.getString(5);
+
+        Long correct = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
+        Long error = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
+        Long sum = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
+        Double accuracy = ValueUtil.parseStr2Dou(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ACCURACY);
+        String submitTimeDate = ValueUtil.parseStr2Str(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUBMITTIMEDATE);
+        Long averageAnswerTime = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_AVERAGEANSWERTIME);
+
+        averageAnswerTime = new BigDecimal(averageAnswerTime).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).longValue();
+
+
+        AccuracyBean ac = new AccuracyBean();
+        ac.setUserId(userId);
+        ac.setSubmitTime(submitTimeDate);
+
+
+        ac.setAverageAnswerTime(averageAnswerTime);
+        ac.setCorrect(correct);
+        ac.setError(error);
+        ac.setSum(sum);
+        ac.setAccuracy(accuracy);
+        // 当前用户每个课件答题正确率
+        ac.setCourseWareCorrectAnalyze(courseCorrectAnalyze);
+        // 当前用户每个知识点答题正确率
+        ac.setKnowledgePointCorrectAnalyze(knowledgePointAnalyze);
+        // count
+        ac.setCount(count);
+
+        ac.setItemNums(itemNums);
+
+        return ac;
     }
 }
