@@ -1,5 +1,6 @@
 package com.li.mq.customizeinputstream;
 
+import com.alibaba.fastjson.JSONArray;
 import com.li.mq.bean.TopicRecordBean;
 import com.rabbitmq.client.*;
 import org.apache.spark.storage.StorageLevel;
@@ -74,10 +75,17 @@ public class RabbitmqReceiver extends Receiver<String> {
                                        AMQP.BasicProperties properties, byte[] body)
                     throws IOException {
                 String message = new String(body, "UTF-8");
-                TopicRecordBean tr = JSONObject.parseObject(message, TopicRecordBean.class);
 
-                logger.info(tr.toString2());
-                store(tr.toString());
+                JSONArray trs = JSONObject.parseArray(message);
+
+                for (int i = 0; i < trs.size(); i++) {
+                    JSONObject jsonObject = trs.getJSONObject(i);
+                    TopicRecordBean tr = JSONObject.parseObject(jsonObject.toString(), TopicRecordBean.class);
+                    logger.info(tr.toString2());
+                    store(tr.toString());
+                }
+
+
             }
         };
 

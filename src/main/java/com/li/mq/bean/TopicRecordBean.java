@@ -74,6 +74,11 @@ public class TopicRecordBean {
      */
     private Long step;
 
+    /**
+     * 是否听过课
+     */
+    private Integer listened;
+
 
     @Override
     public String toString() {
@@ -88,7 +93,8 @@ public class TopicRecordBean {
                 "|courseWareType=" + courseWareType +
                 "|submitTime=" + submitTime +
                 "|subjectId=" + subjectId +
-                "|step=" + step;
+                "|step=" + step +
+                "|listened=" + listened;
     }
 
     public String toString2() {
@@ -103,6 +109,7 @@ public class TopicRecordBean {
                 "\t" + courseWareType +
                 "\t" + submitTime +
                 "\t" + subjectId +
-                "\t" + step;
+                "\t" + step +
+                "\t" + listened;
     }
 }

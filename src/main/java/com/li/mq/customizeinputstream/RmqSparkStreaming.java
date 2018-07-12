@@ -187,6 +187,8 @@ public class RmqSparkStreaming {
                         String knowledgePoint = ValueUtil.parseStr2Str(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_KNOWLEDGEPOINT);
                         //视频来源
                         Integer questionSource = ValueUtil.parseStr2Int(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_QUESTIONSOURCE);
+                        //视频来源
+                        Integer listened = ValueUtil.parseStr2Int(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_LISTENED);
                         //提交时间
                         Long submitTime = ValueUtil.parseStr2Long(info, TopicRecordConstant.SSTREAM_TOPIC_RECORD_FIELD_SUBMITTIME);
                         String submitTimeDate = sdfYMD.format(new Date(submitTime));
@@ -201,7 +203,8 @@ public class RmqSparkStreaming {
                                 subjectId,
                                 knowledgePoint,
                                 questionSource,
-                                submitTimeDate);
+                                submitTimeDate,
+                                listened);
                     }
                 });
                 StructType schema = DataTypes.createStructType(Arrays.asList(
@@ -215,8 +218,9 @@ public class RmqSparkStreaming {
                         DataTypes.createStructField("subjectId", DataTypes.LongType, true),
                         DataTypes.createStructField("knowledgePoint", DataTypes.StringType, true),
                         DataTypes.createStructField("questionSource", DataTypes.IntegerType, true),
-                        DataTypes.createStructField("submitTimeDate", DataTypes.StringType, true)
-                ));
+                        DataTypes.createStructField("submitTimeDate", DataTypes.StringType, true),
+                        DataTypes.createStructField("listened", DataTypes.IntegerType, true)
+                        ));
 
 
                 SQLContext sqlContext = new SQLContext(rdd.context());
@@ -256,6 +260,8 @@ public class RmqSparkStreaming {
             public void call(JavaRDD<Row> rdd) {
 
                 rdd.foreachPartition(new VoidFunction<Iterator<Row>>() {
+                    private static final long serialVersionUID = 773587774022111610L;
+
                     @Override
                     public void call(Iterator<Row> rowIte) throws Exception {
 
@@ -274,7 +280,7 @@ public class RmqSparkStreaming {
                             acs.add(ac);
                         }
 
-                        HBaseUtil.putAll2hbase(conf,AccuracyBean.TEST_HBASE_TABLE, acs);
+                        HBaseUtil.putAll2hbase(conf, AccuracyBean.TEST_HBASE_TABLE, acs);
 //                        System.out.println(acs.size());
                     }
                 });

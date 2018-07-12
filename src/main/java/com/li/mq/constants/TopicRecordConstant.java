@@ -31,6 +31,11 @@ public class TopicRecordConstant {
     public static final String SSTREAM_TOPIC_RECORD_FIELD_STEP = "step";
 
     /**
+     * 阶段
+     */
+    public static final String SSTREAM_TOPIC_RECORD_FIELD_LISTENED = "listened";
+
+    /**
      * subject_id
      */
     public static final String SSTREAM_TOPIC_RECORD_FIELD_SUBJECTID = "subjectId";
