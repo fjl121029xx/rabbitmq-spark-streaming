@@ -52,7 +52,7 @@ public class TopicRecordKnowPointUDAF extends UserDefinedAggregateFunction {
     @Override
     public void initialize(MutableAggregationBuffer buffer) {
         //knowledgePoint=0|questionIds=0|correct=0|error=0|sum=0|accuracy=0
-        buffer.update(0, "knowledgePoint=0_0_0,0,0|correct=0|error=0|sum=0|accuracy=0|totalTime=0");
+        buffer.update(0, "knowledgePoint=0_0_'0,0,0'|correct=0|error=0|sum=0|accuracy=0|totalTime=0");
     }
 
     @Override
@@ -101,10 +101,10 @@ public class TopicRecordKnowPointUDAF extends UserDefinedAggregateFunction {
                 sum++;
 
                 accuracy = new BigDecimal(correct).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
+                time += timeRow;
             }
 
-            time += timeRow;
-            if (!knowledgePoint.equals("0_0_0,0,0")) { //去掉knowledgePoint=0
+            if (!knowledgePoint.equals("0_0_'0,0,0'")) { //去掉knowledgePoint=0
 
                 accuracy = new BigDecimal(correct).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
                 str = "knowledgePoint=" + knowledgePoint + "|" +

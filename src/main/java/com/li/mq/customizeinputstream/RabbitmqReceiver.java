@@ -76,6 +76,7 @@ public class RabbitmqReceiver extends Receiver<String> {
                     throws IOException {
                 String message = new String(body, "UTF-8");
 
+//                System.out.println(message);
                 JSONArray trs = JSONObject.parseArray(message);
 
                 for (int i = 0; i < trs.size(); i++) {

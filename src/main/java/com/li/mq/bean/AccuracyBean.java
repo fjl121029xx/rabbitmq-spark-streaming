@@ -172,7 +172,7 @@ public class AccuracyBean {
         for (String id : commonSet) {
 
             String _courseCorrectAnalyzeInfo = mapMerger.get(id);
-            long courseWareId = ValueUtil.parseStr2Long(_courseCorrectAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_COURSEWAREID);
+            String courseWareId = ValueUtil.parseStr2Str(_courseCorrectAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_COURSEWAREID);
             long correct = ValueUtil.parseStr2Long(_courseCorrectAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
             long error = ValueUtil.parseStr2Long(_courseCorrectAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
             long sum = ValueUtil.parseStr2Long(_courseCorrectAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
@@ -227,7 +227,7 @@ public class AccuracyBean {
         for (String s : cca1) {//大聚合
 
             String knowledgePoint = ValueUtil.parseStr2Str(s, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_KNOWLEDGEPOINT);
-            if (knowledgePoint.equals("0_0_0,0,0")) {
+            if (knowledgePoint.equals("0_0_'0,0,0'")) {
                 continue;
             }
             mapMerger.put(knowledgePoint, s);
@@ -237,7 +237,7 @@ public class AccuracyBean {
         String[] cca2 = now.split("\\&\\&");
         for (String s2 : cca2) {
             String knowledgePoint = ValueUtil.parseStr2Str(s2, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_KNOWLEDGEPOINT);
-            if (knowledgePoint.equals("0_0_0,0,0")) {
+            if (knowledgePoint.equals("0_0_'0,0,0'")) {
                 continue;
             }
             mapRow.put(knowledgePoint, s2);
@@ -268,7 +268,7 @@ public class AccuracyBean {
         for (String id : commonSet) {
 
             String _knowledgePointAnalyzeInfo = mapMerger.get(id);
-            long knowledgePoint = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_KNOWLEDGEPOINT);
+            String knowledgePoint = ValueUtil.parseStr2Str(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_KNOWLEDGEPOINT);
             long correct = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
             long error = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
             long sum = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
@@ -312,7 +312,6 @@ public class AccuracyBean {
         for (String id : rowHaveSet) {
             upda.append(mapRow.get(id)).append("&&");
         }
-
 
         return upda.toString();
     }
