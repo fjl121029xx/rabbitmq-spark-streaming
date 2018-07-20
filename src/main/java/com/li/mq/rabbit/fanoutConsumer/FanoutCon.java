@@ -44,6 +44,7 @@ public class FanoutCon {
                         QueueingConsumer.Delivery delivery = consumer.nextDelivery();
                         String message = new String(delivery.getBody());
                         System.out.println(" [2] Received '" + message + "'");
+
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
