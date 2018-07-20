@@ -220,7 +220,7 @@ public class RmqSparkStreaming {
                         DataTypes.createStructField("questionSource", DataTypes.IntegerType, true),
                         DataTypes.createStructField("submitTimeDate", DataTypes.StringType, true),
                         DataTypes.createStructField("listened", DataTypes.IntegerType, true)
-                        ));
+                ));
 
 
                 SQLContext sqlContext = new SQLContext(rdd.context());

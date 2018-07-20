@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 
 public class RabbitmqReceiverMQHelloWorld {
-    public final static String QUEUE_NAME = "rabbitMQ.test";
+    public final static String QUEUE_NAME = "subcribe";
 
     /**
      * RabbitMQ消费者
@@ -77,6 +77,11 @@ public class RabbitmqReceiverMQHelloWorld {
          * 当全部消费者客户端链接断开时是否自动删除队列
          * 队列其他参数
          */
+
+
+
+
+
         channel.queueDeclare(QUEUE_NAME, false, false, false, null);
         String message = "Hello RabbitMQ";
         //发送消息到队列中
