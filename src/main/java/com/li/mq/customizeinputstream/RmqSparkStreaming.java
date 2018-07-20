@@ -41,7 +41,7 @@ public class RmqSparkStreaming {
 
         final SparkConf conf = new SparkConf()
 //                .setMaster("spark://master:7077")
-//                .setMaster("local[2]")
+                .setMaster("local[2]")
                 .setAppName("RmqSparkStreaming")
                 .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
 
@@ -232,13 +232,13 @@ public class RmqSparkStreaming {
                 sqlContext.udf().register("courseWare2topic", new TopicRecordCourse2AccUDAF());
                 sqlContext.udf().register("knowledgePoint2topic", new TopicRecordKnowPointUDAF());
                 sqlContext.udf().register("itemNums", new TopicRecordItemNumsUDAF());
-
-
+//               courseWare2topic +  question_source
+// 确定一道题question_source      courseware_id courseware_type question_id
                 Dataset<Row> result = sqlContext.sql("" +
                         "select " +
                         "userId ," +
                         "correctAnalyze(correct,submitTimeDate,time) as correctAnalyze," +
-                        "courseWare2topic(courseWare_id,courseWare_type,correct) as courseCorrectAnalyze, " +
+                        "courseWare2topic(courseWare_id,courseWare_type,correct,question_source,question_id,userId) as courseCorrectAnalyze, " +
                         "knowledgePoint2topic(step,subjectId,knowledgePoint,correct,time) as knowledgePointCorrectAnalyze," +
                         "count(*)," +
                         "itemNums(questionSource) as itemNums " +

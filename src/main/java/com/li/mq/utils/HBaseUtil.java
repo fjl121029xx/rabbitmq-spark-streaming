@@ -21,7 +21,7 @@ public class HBaseUtil {
     private static Configuration conf = null;
     private static Connection connection;
 
-    public static final String ZK = "192.168.100.2,192.168.100.3,192.168.100.4";
+    public static final String ZK = "192.168.100.191";
     public static final String CL = "2181";
     public static final String DIR = "/hbase";
 
@@ -115,7 +115,7 @@ public class HBaseUtil {
 
         Configuration conf = HBaseConfiguration.create();
 //        conf.set("hbase.zookeeper.quorum", "192.168.65.130");
-        conf.set("hbase.zookeeper.quorum", HBaseUtil.ZK);
+        conf.set("hbase.zookeeper.quorum","192.168.100.191");
         conf.set("hbase.zookeeper.property.clientPort", HBaseUtil.CL);
         conf.set("hbase.rootdir", HBaseUtil.DIR);
 
