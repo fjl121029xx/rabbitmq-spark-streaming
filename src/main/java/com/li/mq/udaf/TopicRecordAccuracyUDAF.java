@@ -1,5 +1,6 @@
 package com.li.mq.udaf;
 
+import com.li.mq.bean.AccuracyBean;
 import com.li.mq.constants.TopicRecordConstant;
 import com.li.mq.utils.ValueUtil;
 import org.apache.spark.sql.Row;
@@ -9,8 +10,12 @@ import org.apache.spark.sql.types.DataType;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
 
+import java.lang.reflect.Array;
 import java.math.BigDecimal;
+import java.text.ParseException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 public class TopicRecordAccuracyUDAF extends UserDefinedAggregateFunction {
 
@@ -21,7 +26,11 @@ public class TopicRecordAccuracyUDAF extends UserDefinedAggregateFunction {
                 Arrays.asList(
                         DataTypes.createStructField("correct", DataTypes.IntegerType, true),
                         DataTypes.createStructField("submitTimeDate", DataTypes.StringType, true),
-                        DataTypes.createStructField("time", DataTypes.LongType, true)
+                        DataTypes.createStructField("time", DataTypes.LongType, true),
+                        DataTypes.createStructField("courseWare_id", DataTypes.LongType, true),
+                        DataTypes.createStructField("courseWare_type", DataTypes.IntegerType, true),
+                        DataTypes.createStructField("questionSource", DataTypes.IntegerType, true),
+                        DataTypes.createStructField("questionId", DataTypes.LongType, true)
                 )
         );
     }
@@ -51,7 +60,7 @@ public class TopicRecordAccuracyUDAF extends UserDefinedAggregateFunction {
     @Override
     public void initialize(MutableAggregationBuffer buffer) {
 
-        buffer.update(0, "correct=0|error=0|sum=0|accuracy=0.00|submitTimeDate=0000-00-00|averageAnswerTime=000000");
+        buffer.update(0, "correct=|error=|notknow=|total=0|accuracy=0.00|submitTimeDate=0000_00_00_00_00_00|averageAnswerTime=000000");
     }
 
     @Override
@@ -60,75 +69,152 @@ public class TopicRecordAccuracyUDAF extends UserDefinedAggregateFunction {
         int correct = inputRow.getInt(0);
         String submitTimeDate = inputRow.getString(1);
         long time = inputRow.getLong(2);
+        long courseWare_id = inputRow.getLong(3);
+        int courseWare_type = inputRow.getInt(4);
+        int questionSource = inputRow.getInt(5);
+        long questionId = inputRow.getLong(6);
+
+        String answer = courseWare_id + "_" + courseWare_type + "_" + questionSource + "_" + questionId;
 
         String last = buffer.get(0).toString();
 
-        Integer correctLast = ValueUtil.parseStr2Int(last, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
-        Integer errorLast = ValueUtil.parseStr2Int(last, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
+        String correctLast = ValueUtil.parseStr2Str(last, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
+        String errorLast = ValueUtil.parseStr2Str(last, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
+        String notknowLast = ValueUtil.parseStr2Str(last, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_NOTKNOW);
+
         Integer sumLast = ValueUtil.parseStr2Int(last, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
         Long evaluationAnswerTime = ValueUtil.parseStr2Long(last, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_AVERAGEANSWERTIME);
 
 
         sumLast++;
+        StringBuilder corrAppend = new StringBuilder(correctLast);
+        StringBuilder erroAppend = new StringBuilder(errorLast);
+        StringBuilder notAppend = new StringBuilder(notknowLast);
 
         if (correct == 0) {
 
-            correctLast++;
+            StringBuilder[] sbs = AccuracyBean.answerAnalyze(answer, corrAppend, erroAppend, notAppend);
+            corrAppend = sbs[0];
+            erroAppend = sbs[1];
+            notAppend = sbs[2];
         } else if (correct == 1) {
 
-            errorLast++;
+            StringBuilder[] sbs = AccuracyBean.answerAnalyze(answer, erroAppend, corrAppend, notAppend);
+            erroAppend = sbs[0];
+            corrAppend = sbs[1];
+            notAppend = sbs[2];
+        } else if (correct == 2) {
+
+            StringBuilder[] sbs = AccuracyBean.answerAnalyze(answer, notAppend, corrAppend, erroAppend);
+            notAppend = sbs[0];
+            corrAppend = sbs[1];
+            erroAppend = sbs[2];
+        }
+
+        long total = 0L;
+        long corr = 0L;
+        if (!corrAppend.toString().equals("")) {
+            corr = corrAppend.toString().split(",").length;
+            total += corr;
+        }
+        if (!erroAppend.toString().equals("")) {
+            total += erroAppend.toString().split(",").length;
+        }
+        if (!notAppend.toString().equals("")) {
+            total += notAppend.toString().split(",").length;
         }
 
         evaluationAnswerTime += time;
-        double accuracy = new BigDecimal(correctLast).divide(new BigDecimal(sumLast), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
+        double accuracy = new BigDecimal(corr)
+                .divide(new BigDecimal(total), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
 
 
-        buffer.update(0, "correct=" + correctLast +
-                "|error=" + errorLast +
+        buffer.update(0, "correct=" + corrAppend.toString() +
+                "|error=" + erroAppend.toString() +
                 "|sum=" + sumLast +
+                "|notknow=" + notAppend.toString() +
                 "|accuracy=" + accuracy +
                 "|submitTimeDate=" + submitTimeDate +
                 "|averageAnswerTime=" + evaluationAnswerTime);
     }
 
+
     @Override
     public void merge(MutableAggregationBuffer buffer1, Row buffer2) {
 
+
         String accuracyAnalyze = buffer1.getString(0);
-        Integer correctMerge = ValueUtil.parseStr2Int(accuracyAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
-        Integer errorMerge = ValueUtil.parseStr2Int(accuracyAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
+
+        String correctMerge = ValueUtil.parseStr2Str(accuracyAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
+        String errorMerge = ValueUtil.parseStr2Str(accuracyAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
+        String notknowMerge = ValueUtil.parseStr2Str(accuracyAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_NOTKNOW);
         Integer sumMerge = ValueUtil.parseStr2Int(accuracyAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
         Long evaluationAnswerTimeMerge = ValueUtil.parseStr2Long(accuracyAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_AVERAGEANSWERTIME);
-
+        String submitTimeDate = ValueUtil.parseStr2Str(accuracyAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUBMITTIMEDATE);
 
         String accuracyAnalyzeOther = buffer2.getString(0);
-        Integer correctOther = ValueUtil.parseStr2Int(accuracyAnalyzeOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
-        Integer errorOther = ValueUtil.parseStr2Int(accuracyAnalyzeOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
+
+        String correctOther = ValueUtil.parseStr2Str(accuracyAnalyzeOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
+        String errorOther = ValueUtil.parseStr2Str(accuracyAnalyzeOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
+        String notknowOther = ValueUtil.parseStr2Str(accuracyAnalyzeOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_NOTKNOW);
         Integer sumOther = ValueUtil.parseStr2Int(accuracyAnalyzeOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
-        String submitTimeDate = ValueUtil.parseStr2Str(accuracyAnalyzeOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUBMITTIMEDATE);
         Long evaluationAnswerTimeOther = ValueUtil.parseStr2Long(accuracyAnalyzeOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_AVERAGEANSWERTIME);
 
+        String submitTimeDateOther = ValueUtil.parseStr2Str(accuracyAnalyzeOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUBMITTIMEDATE);
 
-        correctMerge += correctOther;
-        errorMerge += errorOther;
-        sumMerge += sumOther;
         evaluationAnswerTimeMerge += evaluationAnswerTimeOther;
 
+        StringBuilder cor = new StringBuilder();
+        StringBuilder err = new StringBuilder();
+        StringBuilder notknow = new StringBuilder();
 
-        double accuracy = new BigDecimal(correctMerge).divide(new BigDecimal(sumMerge), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
+        sumMerge += sumOther;
 
-        buffer1.update(0, "correct=" + correctMerge +
-                "|error=" + errorMerge +
+        try {
+            cor = AccuracyBean.mergeAnwser(correctMerge, submitTimeDate, correctOther, submitTimeDateOther, cor);
+            err = AccuracyBean.mergeAnwser(errorMerge, submitTimeDate, errorOther, submitTimeDateOther, err);
+            notknow = AccuracyBean.mergeAnwser(notknowMerge, submitTimeDate, notknowOther, submitTimeDateOther, notknow);
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+
+        long total = 0L;
+        long sumcorr = 0L;
+        long sumerro = 0L;
+        long sumnot = 0L;
+
+        if (!cor.toString().equals("")) {
+            sumcorr = cor.toString().split(",").length;
+            total += sumcorr;
+        }
+        if (!err.toString().equals("")) {
+            sumerro = err.toString().split(",").length;
+            total += sumerro;
+        }
+        if (!notknow.toString().equals("")) {
+            sumnot = notknow.toString().split(",").length;
+            total += sumnot;
+        }
+
+
+        double accuracy = new BigDecimal(sumcorr).divide(new BigDecimal(total), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
+
+        buffer1.update(0, "correct=" + cor.toString() +
+                "|error=" + err.toString() +
+                "|notknow=" + notknow.toString() +
                 "|sum=" + sumMerge +
                 "|accuracy=" + accuracy +
-                "|submitTimeDate=" + submitTimeDate +
+                "|submitTimeDateOther=" + submitTimeDateOther +
                 "|averageAnswerTime=" + evaluationAnswerTimeMerge);
 
     }
+
 
     @Override
     public Object evaluate(Row buffer) {
 
         return buffer.getString(0);
     }
+
+
 }

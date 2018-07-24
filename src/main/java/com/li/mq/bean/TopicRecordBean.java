@@ -87,7 +87,7 @@ public class TopicRecordBean {
                 "|userId=" + userId +
                 "|time=" + time +
                 "|correct=" + correct +
-                "|knowledgePoint='" + knowledgePoint + '\'' +
+                "|knowledgePoint=" + knowledgePoint +
                 "|questionSource=" + questionSource +
                 "|courseWareId=" + courseWareId +
                 "|courseWareType=" + courseWareType +

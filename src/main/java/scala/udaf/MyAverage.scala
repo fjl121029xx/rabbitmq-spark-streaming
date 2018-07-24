@@ -21,8 +21,8 @@ object MyAverage extends UserDefinedAggregateFunction {
   def deterministic: Boolean = true
 
   // Initializes the given aggregation buffer. The buffer itself is a `Row` that in addition to
-  // standard methods like retrieving a value at an index (e.g., get(), getBoolean()), provides
-  // the opportunity to update its values. Note that arrays and maps inside the buffer are still
+  // standard methods like retrieving a value at an index (e.g., getAccuracy(), getBoolean()), provides
+  // the opportunity to updateAccuracy its values. Note that arrays and maps inside the buffer are still
   // immutable.
   def initialize(buffer: MutableAggregationBuffer): Unit = {
     buffer(0) = 0L

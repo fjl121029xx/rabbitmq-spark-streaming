@@ -1,7 +1,7 @@
 package com.li.mq.utils;
 
 import com.li.mq.bean.AccuracyBean;
-import com.li.mq.constants.TopicRecordConstant;
+import com.li.mq.bean.UserCourseAccuracyBean;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.*;
 import org.apache.hadoop.hbase.client.*;
@@ -14,11 +14,12 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
+import java.text.ParseException;
 import java.util.*;
 
 public class HBaseUtil {
 
-    private static Configuration conf = null;
+    public static Configuration conf = null;
     private static Connection connection;
 
     public static final String ZK = "192.168.100.191";
@@ -115,36 +116,56 @@ public class HBaseUtil {
 
         Configuration conf = HBaseConfiguration.create();
 //        conf.set("hbase.zookeeper.quorum", "192.168.65.130");
-        conf.set("hbase.zookeeper.quorum","192.168.100.191");
+        conf.set("hbase.zookeeper.quorum", "192.168.100.191");
         conf.set("hbase.zookeeper.property.clientPort", HBaseUtil.CL);
         conf.set("hbase.rootdir", HBaseUtil.DIR);
 
         HBaseAdmin admin = new HBaseAdmin(conf);
 
-        HTableDescriptor table = new HTableDescriptor(AccuracyBean.TEST_HBASE_TABLE);
+        HTableDescriptor table = new HTableDescriptor("knowAccuracy");
 
-        HColumnDescriptor columnFamily = new HColumnDescriptor(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS);
+        HColumnDescriptor columnFamily = new HColumnDescriptor("accuracyinfo");
         columnFamily.setMaxVersions(10);
         table.addFamily(columnFamily);
 
-        HColumnDescriptor columnFamily2 = new HColumnDescriptor(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS2);
-        columnFamily2.setMaxVersions(10);
-        table.addFamily(columnFamily2);
-
-        HColumnDescriptor columnFamily3 = new HColumnDescriptor(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS3);
-        columnFamily2.setMaxVersions(10);
-        table.addFamily(columnFamily3);
-
-        HColumnDescriptor columnFamily4 = new HColumnDescriptor(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS4);
-        columnFamily2.setMaxVersions(10);
-        table.addFamily(columnFamily4);
 
         admin.createTable(table);
         admin.close();
 
     }
 
+    /* public static void main(String[] args) throws Exception {
 
+         Configuration conf = HBaseConfiguration.create();
+ //        conf.set("hbase.zookeeper.quorum", "192.168.65.130");
+         conf.set("hbase.zookeeper.quorum","192.168.100.191");
+         conf.set("hbase.zookeeper.property.clientPort", HBaseUtil.CL);
+         conf.set("hbase.rootdir", HBaseUtil.DIR);
+
+         HBaseAdmin admin = new HBaseAdmin(conf);
+
+         HTableDescriptor table = new HTableDescriptor(AccuracyBean.TEST_HBASE_TABLE);
+
+         HColumnDescriptor columnFamily = new HColumnDescriptor(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS);
+         columnFamily.setMaxVersions(10);
+         table.addFamily(columnFamily);
+
+         HColumnDescriptor columnFamily2 = new HColumnDescriptor(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS2);
+         columnFamily2.setMaxVersions(10);
+         table.addFamily(columnFamily2);
+
+         HColumnDescriptor columnFamily3 = new HColumnDescriptor(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS3);
+         columnFamily2.setMaxVersions(10);
+         table.addFamily(columnFamily3);
+
+         HColumnDescriptor columnFamily4 = new HColumnDescriptor(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS4);
+         columnFamily2.setMaxVersions(10);
+         table.addFamily(columnFamily4);
+
+         admin.createTable(table);
+         admin.close();
+
+     }*/
     @Test
     public void testPut() throws Exception {
 
@@ -220,31 +241,10 @@ public class HBaseUtil {
         table.close();
     }
 
-    /**
-     * @param clazz   转换对象class
-     * @param version 查询最多多少版本
-     * @param result  hbase查询结果
-     * @param ismult  是否返回集合
-     * @return
-     */
-    private void hbase2Object(Class clazz, int version, Result result, boolean ismult) {
+    public static Object getObject(String tablename, String course, Class clazz) throws Exception {
 
-        Field[] declaredFields = clazz.getDeclaredFields();
-
-        List<Cell> cells = result.listCells();
-        for (Cell c : cells) {
-            byte[] familyArray = c.getQualifier();
-            System.out.println(new String(familyArray));
-        }
-
-
-//        return null;
-    }
-
-    public static AccuracyBean get(String userId) throws Exception {
-
-        HTable table = new HTable(conf, AccuracyBean.TEST_HBASE_TABLE);
-        Get get = new Get(Bytes.toBytes(userId));
+        HTable table = new HTable(conf, tablename);
+        Get get = new Get(Bytes.toBytes(course));
         get.setMaxVersions(1);
         Result result = table.get(get);
 
@@ -260,11 +260,9 @@ public class HBaseUtil {
 
             map.put(new String(qualifier), new String(valueArray, c.getValueOffset(), c.getValueLength()));
         }
-        map.put("userId", userId);
 
-        Class<AccuracyBean> clazz = AccuracyBean.class;
-        AccuracyBean ac = clazz.newInstance();
-//        System.out.println(map);
+        Object o = clazz.newInstance();
+
         Method[] declaredMethods = clazz.getDeclaredMethods();
         for (Method m : declaredMethods) {
             String mName = m.getName();
@@ -277,274 +275,24 @@ public class HBaseUtil {
                 String s2 = set.substring(1, set.length());
                 if (pType.getName().equals("java.lang.Long")) {
 
-                    m.invoke(ac, Long.parseLong(map.get(s1 + s2)));
+                    if (map.get(s1 + s2) != null){
+
+                        m.invoke(o, Long.parseLong(map.get(s1 + s2)));
+                    }
                 } else if (pType.getName().equals("java.lang.String")) {
 
-                    m.invoke(ac, map.get(s1 + s2));
+                    m.invoke(o, map.get(s1 + s2));
                 } else if (pType.getName().equals("java.lang.Double")) {
 
-                    m.invoke(ac, Double.parseDouble(map.get(s1 + s2)));
+                    m.invoke(o, Double.parseDouble(map.get(s1 + s2)));
                 }
             }
-
         }
 
         table.close();
 
-        return ac;
+        return o;
     }
-
-    public static AccuracyBean update(String table, AccuracyBean newAc) throws Exception {
-
-        Long userId = newAc.getUserId();
-        AccuracyBean acFromHbase = HBaseUtil.get(userId.toString());
-
-        if (acFromHbase == null) {
-//            put2hbase(table, newAc);
-            return newAc;
-        }
-        ////////////////
-        Long correct = acFromHbase.getCorrect();
-        Long error = acFromHbase.getError();
-        Long sum = acFromHbase.getSum();
-        Long count = acFromHbase.getCount();
-        Long averageAnswerTime = acFromHbase.getAverageAnswerTime();
-        String courseCorrectAnalyze = acFromHbase.getCourseWareCorrectAnalyze();
-        String knowledgePointCorrectAnalyze = acFromHbase.getKnowledgePointCorrectAnalyze();
-        String itemNums = acFromHbase.getItemNums();
-        String[] split = itemNums.split("\\|");
-        //////////////////////////////
-        Long newCorrect = newAc.getCorrect();
-        Long newError = newAc.getError();
-        Long newSum = newAc.getSum();
-        Long newAverageAnswerTime = newAc.getAverageAnswerTime();
-        String newCourseCorrectAnalyze = newAc.getCourseWareCorrectAnalyze();
-        String newKnowledgePointCorrectAnalyze = newAc.getKnowledgePointCorrectAnalyze();
-        String newItemNums = newAc.getItemNums();
-        String[] newSplit = newItemNums.split("\\|");
-        Long newCount = newAc.getCount();
-
-        newCount += count;
-        newCorrect += correct;
-        newError += error;
-        newSum += sum;
-        newAverageAnswerTime += averageAnswerTime;
-        double accuracy = new BigDecimal(newCorrect).divide(new BigDecimal(newSum), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
-
-        newKnowledgePointCorrectAnalyze = AccuracyBean.kn(knowledgePointCorrectAnalyze, newKnowledgePointCorrectAnalyze);
-        newCourseCorrectAnalyze = AccuracyBean.cw(courseCorrectAnalyze, newCourseCorrectAnalyze);
-
-        newItemNums = "afterClass=" + (Long.parseLong(split[0].split("=")[1]) +
-                Long.parseLong(newSplit[0].split("=")[1])
-        ) + "|middleClass=" + (Long.parseLong(split[1].split("=")[1]) +
-                Long.parseLong(newSplit[1].split("=")[1])) + "";
-
-        newAc.setCorrect(newCorrect);
-        newAc.setError(newError);
-        newAc.setSum(newSum);
-        newAc.setAccuracy(accuracy);
-        newAc.setCourseWareCorrectAnalyze(newCourseCorrectAnalyze);
-        newAc.setKnowledgePointCorrectAnalyze(newKnowledgePointCorrectAnalyze);
-        newAc.setItemNums(newItemNums);
-        newAc.setAverageAnswerTime(newAverageAnswerTime);
-        newAc.setCount(newCount);
-
-//        HBaseUtil.put2hbase(table, newAc);
-
-        return newAc;
-    }
-
-
-    public static void put2hbase(String table, AccuracyBean ac) {
-
-        try {
-            HTable _table = new HTable(conf, table);
-
-            String[] columns = new String[]{
-                    ac.getUserId().toString(),
-                    ac.getCorrect().toString(),
-                    ac.getError().toString(),
-                    ac.getSum().toString(),
-                    ac.getAccuracy().toString(),
-                    ac.getSubmitTime(),
-                    ac.getAverageAnswerTime().toString(),
-                    ac.getCourseWareCorrectAnalyze(),
-                    ac.getKnowledgePointCorrectAnalyze(),
-                    ac.getCount().toString(),
-                    ac.getItemNums()};
-
-            Put put = new Put(Bytes.toBytes(columns[0]));
-
-            put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS),
-                    Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_CORRECT),
-                    Bytes.toBytes(columns[1]));
-
-            put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS),
-                    Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_ERROR),
-                    Bytes.toBytes(columns[2]));
-
-            put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS),
-                    Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_SUM),
-                    Bytes.toBytes(columns[3]));
-
-            put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS),
-                    Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_ACCURACY),
-                    Bytes.toBytes(columns[4]));
-
-            put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS),
-                    Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_SUBMITTIME),
-                    Bytes.toBytes(columns[5]));
-
-            put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS),
-                    Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_AVERAGEANSWERTIME),
-                    Bytes.toBytes(columns[6]));
-
-            /**
-             * 课件答题正确率
-             */
-            put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS2),
-                    Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_COURSEWARECORRECTANALYZE),
-                    Bytes.toBytes(columns[7]));
-
-            /**
-             * 知识点答题正确率
-             */
-            put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS3),
-                    Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_KNOWLEDGEPOINTCORRECTANALYZE),
-                    Bytes.toBytes(columns[8]));
-
-            /**
-             * 知识点答题正确率
-             */
-            put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS4),
-                    Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_COUNT),
-                    Bytes.toBytes(columns[9]));
-
-            /**
-             * 课后课中做题数量
-             */
-            put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS),
-                    Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_ITEMNUMS),
-                    Bytes.toBytes(columns[10]));
-
-            _table.put(put);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public static void putAll2hbase(Configuration conf, String table, List<AccuracyBean> accuracyList) throws Exception {
-
-        try {
-
-            HTable _table = new HTable(conf, table);
-
-            String array[][] = new String[accuracyList.size()][AccuracyBean.class.getDeclaredFields().length];
-            int i = 0;
-            for (AccuracyBean ac : accuracyList) {
-
-
-                ac = update(table, ac);
-
-
-                String[] row = new String[]{
-                        ac.getUserId().toString(),
-                        ac.getCorrect().toString(),
-                        ac.getError().toString(),
-                        ac.getSum().toString(),
-                        ac.getAccuracy().toString(),
-                        ac.getSubmitTime(),
-                        ac.getAverageAnswerTime().toString(),
-                        ac.getCourseWareCorrectAnalyze(),
-                        ac.getKnowledgePointCorrectAnalyze(),
-                        ac.getCount().toString(),
-                        ac.getItemNums()
-
-                };
-
-                array[i] = row;
-                i++;
-            }
-
-
-            List<Put> puts = new ArrayList<>();
-            List<Delete> deletes = new ArrayList<Delete>();
-
-            for (int j = 0; j < array.length; j++) {
-
-                String[] columns = array[j];
-                Delete delete = new Delete(Bytes.toBytes(columns[0]));
-                deletes.add(delete);
-
-
-                Put put = new Put(Bytes.toBytes(columns[0]));
-
-                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS),
-                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_CORRECT),
-                        Bytes.toBytes(columns[1]));
-
-                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS),
-                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_ERROR),
-                        Bytes.toBytes(columns[2]));
-
-                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS),
-                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_SUM),
-                        Bytes.toBytes(columns[3]));
-
-                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS),
-                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_ACCURACY),
-                        Bytes.toBytes(columns[4]));
-
-                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS),
-                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_SUBMITTIME),
-                        Bytes.toBytes(columns[5]));
-
-                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS),
-                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_AVERAGEANSWERTIME),
-                        Bytes.toBytes(columns[6]));
-
-                /**
-                 * 课件答题正确率
-                 */
-                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS2),
-                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_COURSEWARECORRECTANALYZE),
-                        Bytes.toBytes(columns[7]));
-
-                /**
-                 * 知识点答题正确率
-                 */
-                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS3),
-                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_KNOWLEDGEPOINTCORRECTANALYZE),
-                        Bytes.toBytes(columns[8]));
-
-                /**
-                 * 知识点答题正确率
-                 */
-                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS4),
-                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_COUNT),
-                        Bytes.toBytes(columns[9]));
-                /**
-                 * 课后课中做题数量
-                 */
-                put.addColumn(Bytes.toBytes(AccuracyBean.HBASE_TABLE_FAMILY_COLUMNS),
-                        Bytes.toBytes(AccuracyBean.HBASE_TABLE_COLUMN_ITEMNUMS),
-                        Bytes.toBytes(columns[10]));
-
-                puts.add(put);
-            }
-
-//            _table.delete(deletes);
-
-            _table.put(puts);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-
-//
-//        System.out.println(AccuracyBean.class.getDeclaredFields().length);
-//    }
 
 
 }

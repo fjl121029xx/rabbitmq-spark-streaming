@@ -1,6 +1,8 @@
 package com.li.mq.customizeinputstream;
 
 import com.li.mq.bean.AccuracyBean;
+import com.li.mq.bean.UserAccuracy;
+import com.li.mq.bean.UserCourseAccuracyBean;
 import com.li.mq.constants.TopicRecordConstant;
 import com.li.mq.udaf.TopicRecordAccuracyUDAF;
 import com.li.mq.udaf.TopicRecordCourse2AccUDAF;
@@ -10,8 +12,6 @@ import com.li.mq.utils.HBaseUtil;
 import com.li.mq.utils.ValueUtil;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
-import org.apache.hadoop.hbase.client.Connection;
-import org.apache.spark.Partition;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.Optional;
@@ -35,7 +35,7 @@ import java.util.*;
 
 public class RmqSparkStreaming {
 
-    private static final SimpleDateFormat sdfYMD = new SimpleDateFormat("yyyy-MM-dd");
+    private static final SimpleDateFormat sdfYMD = new SimpleDateFormat("yyyy_MM_dd_HH_mm_ss");
 
     public static void main(String[] args) throws InterruptedException {
 
@@ -44,8 +44,10 @@ public class RmqSparkStreaming {
                 .setMaster("local[2]")
                 .setAppName("RmqSparkStreaming")
                 .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
+        String chechkpoint = "D:\\tmp\\checkpoint";
+//        String chechkpoint = "hdfs://192.168.100.26:8020/sparkstreaming/topicrecord/checkpoint/data";
 
-        try (JavaStreamingContext jsc = JavaStreamingContext.getOrCreate("hdfs://192.168.100.26:8020/sparkstreaming/checkpoint/data", new Function0<JavaStreamingContext>() {
+        try (JavaStreamingContext jsc = JavaStreamingContext.getOrCreate(chechkpoint, new Function0<JavaStreamingContext>() {
             private static final long serialVersionUID = -3522596327158762004L;
 
             @Override
@@ -53,7 +55,7 @@ public class RmqSparkStreaming {
 
 
                 JavaStreamingContext jsc = new JavaStreamingContext(conf, Durations.seconds(5));
-                jsc.checkpoint("hdfs://192.168.100.26:8020/sparkstreaming/checkpoint/data");
+                jsc.checkpoint(chechkpoint);
 
                 JavaReceiverInputDStream<String> streamFromRamq = jsc.receiverStream(new RabbitmqReceiver());
 
@@ -232,16 +234,16 @@ public class RmqSparkStreaming {
                 sqlContext.udf().register("courseWare2topic", new TopicRecordCourse2AccUDAF());
                 sqlContext.udf().register("knowledgePoint2topic", new TopicRecordKnowPointUDAF());
                 sqlContext.udf().register("itemNums", new TopicRecordItemNumsUDAF());
-//               courseWare2topic +  question_source
-// 确定一道题question_source      courseware_id courseware_type question_id
+                //  courseWare2topic +  question_source
+                // 确定一道题question_source      courseware_id courseware_type question_id
                 Dataset<Row> result = sqlContext.sql("" +
                         "select " +
                         "userId ," +
-                        "correctAnalyze(correct,submitTimeDate,time) as correctAnalyze," +
-                        "courseWare2topic(courseWare_id,courseWare_type,correct,question_source,question_id,userId) as courseCorrectAnalyze, " +
-                        "knowledgePoint2topic(step,subjectId,knowledgePoint,correct,time) as knowledgePointCorrectAnalyze," +
+                        "correctAnalyze(correct,submitTimeDate,time,courseWare_id,courseWare_type,questionSource,questionId) as correctAnalyze," +
+                        "courseWare2topic(courseWare_id,courseWare_type,correct,questionSource,questionId) as courseCorrectAnalyze, " +
+                        "knowledgePoint2topic(step,subjectId,knowledgePoint,correct,time,questionId) as knowledgePointCorrectAnalyze," +
                         "count(*)," +
-                        "itemNums(questionSource) as itemNums " +
+                        "itemNums(questionSource,courseWare_id,courseWare_type,questionId) as itemNums " +
                         "from tb_topic_record " +
                         "group by userId");
 
@@ -280,66 +282,15 @@ public class RmqSparkStreaming {
                             acs.add(ac);
                         }
 
-                        HBaseUtil.putAll2hbase(conf, AccuracyBean.TEST_HBASE_TABLE, acs);
+//                        AccuracyBean.putAllAccuracy2hbase(conf, AccuracyBean.TEST_HBASE_TABLE, acs);
+//                        UserCourseAccuracyBean.putAllCourse2hbase(conf, acs);
+                        UserAccuracy.putAllUser2hbase(conf, acs);
 //                        System.out.println(acs.size());
                     }
                 });
 
-//                        rdd.foreach(new VoidFunction<Row>() {
-//
-//                    private static final long serialVersionUID = -1902947152008699620L;
-//
-//                    @Override
-//                    public void call(Row rowRecord) throws Exception {
-//
-//
-//                        foreachRDD(rowRecord);
-//                    }
-//                });
             }
         });
-    }
-
-
-    public static void foreachRDD(Row rowRecord) throws Exception {
-        long userId = rowRecord.getLong(0);
-        String userCorrectAnalyze = rowRecord.getString(1);
-        String courseCorrectAnalyze = rowRecord.getString(2);
-        String knowledgePointAnalyze = rowRecord.getString(3);
-        long count = rowRecord.getLong(4);
-        String itemNums = rowRecord.getString(5);
-
-        Long correct = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
-        Long error = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
-        Long sum = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
-        Double accuracy = ValueUtil.parseStr2Dou(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ACCURACY);
-        String submitTimeDate = ValueUtil.parseStr2Str(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUBMITTIMEDATE);
-        Long averageAnswerTime = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_AVERAGEANSWERTIME);
-
-        averageAnswerTime = new BigDecimal(averageAnswerTime).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).longValue();
-
-
-        AccuracyBean ac = new AccuracyBean();
-        ac.setUserId(userId);
-        ac.setSubmitTime(submitTimeDate);
-
-
-        ac.setAverageAnswerTime(averageAnswerTime);
-        ac.setCorrect(correct);
-        ac.setError(error);
-        ac.setSum(sum);
-        ac.setAccuracy(accuracy);
-        // 当前用户每个课件答题正确率
-        ac.setCourseWareCorrectAnalyze(courseCorrectAnalyze);
-        // 当前用户每个知识点答题正确率
-        ac.setKnowledgePointCorrectAnalyze(knowledgePointAnalyze);
-        // count
-        ac.setCount(count);
-
-        ac.setItemNums(itemNums);
-
-//                            HBaseUtil.put2hbase(AccuracyBean.TEST_HBASE_TABLE, ac);
-        HBaseUtil.update(AccuracyBean.TEST_HBASE_TABLE, ac);
     }
 
     public static AccuracyBean row2Accuracy(Row accuracyRow) {
@@ -351,9 +302,12 @@ public class RmqSparkStreaming {
         long count = accuracyRow.getLong(4);
         String itemNums = accuracyRow.getString(5);
 
-        Long correct = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
-        Long error = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
+        String correct = ValueUtil.parseStr2Str(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
+        String error = ValueUtil.parseStr2Str(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
+        String notknow = ValueUtil.parseStr2Str(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_NOTKNOW);
+
         Long sum = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
+
         Double accuracy = ValueUtil.parseStr2Dou(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ACCURACY);
         String submitTimeDate = ValueUtil.parseStr2Str(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUBMITTIMEDATE);
         Long averageAnswerTime = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_AVERAGEANSWERTIME);
@@ -369,6 +323,7 @@ public class RmqSparkStreaming {
         ac.setAverageAnswerTime(averageAnswerTime);
         ac.setCorrect(correct);
         ac.setError(error);
+        ac.setNotknow(notknow);
         ac.setSum(sum);
         ac.setAccuracy(accuracy);
         // 当前用户每个课件答题正确率
