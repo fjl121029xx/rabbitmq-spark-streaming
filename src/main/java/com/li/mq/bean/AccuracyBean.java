@@ -226,10 +226,10 @@ public class AccuracyBean {
                 sumerro = err.toString().split(",").length;
                 total += sumerro;
             }
-//            if (!notknow.toString().equals("")) {
-//                sumnot = notknow.toString().split(",").length;
-//                total += sumnot;
-//            }
+            if (!notknows.toString().equals("")) {
+                sumnot = notknow.toString().split(",").length;
+                total += sumnot;
+            }
 
             sum += sumOther;
 
@@ -274,7 +274,7 @@ public class AccuracyBean {
         for (String s : cca1) {//大聚合
 
             String knowledgePoint = ValueUtil.parseStr2Str(s, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_KNOWLEDGEPOINT);
-            if (knowledgePoint.equals("0_0_'0,0,0'")) {
+            if (knowledgePoint.equals("0_0_0,0,0")) {
                 continue;
             }
             mapMerger.put(knowledgePoint, s);
@@ -284,7 +284,7 @@ public class AccuracyBean {
         String[] cca2 = now.split("\\&\\&");
         for (String s2 : cca2) {
             String knowledgePoint = ValueUtil.parseStr2Str(s2, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_KNOWLEDGEPOINT);
-            if (knowledgePoint.equals("0_0_'0,0,0'")) {
+            if (knowledgePoint.equals("0_0_0,0,0")) {
                 continue;
             }
             mapRow.put(knowledgePoint, s2);
@@ -316,28 +316,60 @@ public class AccuracyBean {
 
             String _knowledgePointAnalyzeInfo = mapMerger.get(id);
             String knowledgePoint = ValueUtil.parseStr2Str(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_KNOWLEDGEPOINT);
-            long correct = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
-            long error = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
+            String correct = ValueUtil.parseStr2Str(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
+            String error = ValueUtil.parseStr2Str(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
+            String notknow = ValueUtil.parseStr2Str(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_NOTKNOW);
+
             long sum = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
             long time = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_TOTALTIME);
 
-
+            ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             String _knowledgePointAnalyzeInfoOther = mapRow.get(id);
-            long correctOther = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
-            long errorOther = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
+            String correctOther = ValueUtil.parseStr2Str(_knowledgePointAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
+            String errorOther = ValueUtil.parseStr2Str(_knowledgePointAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
+            String notknowOther = ValueUtil.parseStr2Str(_knowledgePointAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_NOTKNOW);
+
             long sumOther = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
             long timeOther = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_TOTALTIME);
 
-            correct += correctOther;
-            error += errorOther;
+
+            StringBuilder cor = new StringBuilder();
+            StringBuilder err = new StringBuilder();
+            StringBuilder notknows = new StringBuilder();
+
+            try {
+                cor = AccuracyBean.mergeAnwser2(correct, correctOther, errorOther, notknowOther, cor);
+                err = AccuracyBean.mergeAnwser2(error, errorOther, correctOther, notknowOther, err);
+                notknows = AccuracyBean.mergeAnwser2(notknow, notknowOther, correctOther, errorOther, notknows);
+            } catch (ParseException e) {
+                e.printStackTrace();
+            }
+
+            long total = 0L;
+            long sumcorr = 0L;
+
+            if (!cor.toString().equals("")) {
+                sumcorr = cor.toString().split(",").length;
+                total += sumcorr;
+            }
+            if (!err.toString().equals("")) {
+                total += err.toString().split(",").length;
+            }
+            if (!notknows.toString().equals("")) {
+                total += notknows.toString().split(",").length;
+            }
+
             sum += sumOther;
+
+            double accuracy = new BigDecimal(sumcorr).divide(new BigDecimal(total), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
+
             time += timeOther;
-            double accuracy = new BigDecimal(correct).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
 
 
             upda.append("knowledgePoint=" + knowledgePoint + "|" +
-                    "correct=" + correct + "|" +
-                    "error=" + error + "|" +
+                    "correct=" + cor.toString() + "|" +
+                    "error=" + err.toString() + "|" +
+                    "notknow=" + notknows.toString() + "|" +
                     "sum=" + sum + "|" +
                     "accuracy=" + accuracy + "|" +
                     "totalTime=" + time).append("&&");
@@ -747,9 +779,6 @@ public class AccuracyBean {
 
         return newAc;
     }
-
-
-
 
 
 }

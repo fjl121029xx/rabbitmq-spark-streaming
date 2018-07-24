@@ -23,7 +23,8 @@ public class TopicRecordKnowPointUDAF extends UserDefinedAggregateFunction {
                         DataTypes.createStructField("subjectId", DataTypes.LongType, true),
                         DataTypes.createStructField("knowledgePoint", DataTypes.StringType, true),
                         DataTypes.createStructField("correct", DataTypes.IntegerType, true),
-                        DataTypes.createStructField("time", DataTypes.LongType, true)
+                        DataTypes.createStructField("time", DataTypes.LongType, true),
+                        DataTypes.createStructField("questionId", DataTypes.LongType, true)
                 ));
     }
 
@@ -51,8 +52,8 @@ public class TopicRecordKnowPointUDAF extends UserDefinedAggregateFunction {
 
     @Override
     public void initialize(MutableAggregationBuffer buffer) {
-        //knowledgePoint=0|questionIds=0|correct=0|error=0|sum=0|accuracy=0
-        buffer.update(0, "knowledgePoint=0_0_'0,0,0'|correct=0|error=0|sum=0|accuracy=0|totalTime=0");
+        //knowledgePoint=step_subjectId_knowledgePoint|questionIds=0|correct=0|error=0|sum=0|accuracy=0
+        buffer.update(0, "knowledgePoint=0_0_0,0,0|correct=|error=|sum=|notknow=|accuracy=0|totalTime=0");
     }
 
     @Override
@@ -60,82 +61,120 @@ public class TopicRecordKnowPointUDAF extends UserDefinedAggregateFunction {
 
         long step = input.getLong(0);
         long subjectId = input.getLong(1);
-        String knowledgePointRow = input.getString(2);
+        String kpRow = input.getString(2);
         int correctRow = input.getInt(3);
         long timeRow = input.getLong(4);
+        long questionId = input.getLong(5);
 
-        knowledgePointRow = step + "_" + subjectId + "_" + knowledgePointRow;
+        kpRow = step + "_" + subjectId + "_" + kpRow;
 
-        String knowledgePointAnalyzeInfo = buffer.getString(0);
 
-        String[] knowledgePointAnalyzeInfoArr = knowledgePointAnalyzeInfo.split("\\&\\&");
-
-        boolean notHave = false;
 
         StringBuilder sb = new StringBuilder();
 
         double accuracy = 0.00;
 
-        for (int i = 0; i < knowledgePointAnalyzeInfoArr.length; i++) {
+        boolean notHave = false;
+        String[] KpInfobuffered = buffer.getString(0).split("\\&\\&");
+        for (int i = 0; i < KpInfobuffered.length; i++) {
 
-            String str = knowledgePointAnalyzeInfoArr[i];
+            String strbuffer = KpInfobuffered[i];
+
             //1_2_1,2,3
-            String knowledgePoint = ValueUtil.parseStr2Str(str, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_KNOWLEDGEPOINT);
+            String bufferedPoint = ValueUtil.parseStr2Str(strbuffer, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_KNOWLEDGEPOINT);
 
-            long correct = ValueUtil.parseStr2Long(str, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
-            long error = ValueUtil.parseStr2Long(str, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
-            long sum = ValueUtil.parseStr2Long(str, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
-            long time = ValueUtil.parseStr2Long(str, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_TOTALTIME);
+            String correct = ValueUtil.parseStr2Str(strbuffer, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
+            String error = ValueUtil.parseStr2Str(strbuffer, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
+            String notknow = ValueUtil.parseStr2Str(strbuffer, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_NOTKNOW);
 
-            if (knowledgePointRow.equals(knowledgePoint)) {
+            long sum = ValueUtil.parseStr2Long(strbuffer, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
+            long time = ValueUtil.parseStr2Long(strbuffer, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_TOTALTIME);
+
+
+            StringBuilder corrAppend = new StringBuilder(correct);
+            StringBuilder erroAppend = new StringBuilder(error);
+            StringBuilder notAppend = new StringBuilder(notknow);
+
+            if (kpRow.equals(bufferedPoint)) {
 
                 notHave = true;
 
                 if (correctRow == 0) {
 
-                    correct++;
+                    StringBuilder[] sbs = AccuracyBean.answerAnalyze(Long.toString(questionId), corrAppend, erroAppend, notAppend);
+                    corrAppend = sbs[0];
+                    erroAppend = sbs[1];
+                    notAppend = sbs[2];
                 } else if (correctRow == 1) {
 
-                    error++;
-                }
-                sum++;
+                    StringBuilder[] sbs = AccuracyBean.answerAnalyze(Long.toString(questionId), erroAppend, corrAppend, notAppend);
+                    erroAppend = sbs[0];
+                    corrAppend = sbs[1];
+                    notAppend = sbs[2];
+                } else if (correctRow == 2) {
 
-                accuracy = new BigDecimal(correct).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
+                    StringBuilder[] sbs = AccuracyBean.answerAnalyze(Long.toString(questionId), notAppend, corrAppend, erroAppend);
+                    notAppend = sbs[0];
+                    corrAppend = sbs[1];
+                    erroAppend = sbs[2];
+                }
+
+                sum++;
                 time += timeRow;
             }
+            //计算正确率
+            long total = 0L;
+            long corr = 0L;
+            if (!corrAppend.toString().equals("")) {
+                corr = corrAppend.toString().split(",").length;
+                total += corr;
+            }
+            if (!erroAppend.toString().equals("")) {
+                total += erroAppend.toString().split(",").length;
+            }
+            if (!notAppend.toString().equals("")) {
+                total += notAppend.toString().split(",").length;
+            }
 
-            if (!knowledgePoint.equals("0_0_'0,0,0'")) { //去掉knowledgePoint=0
+            if (!bufferedPoint.equals("0_0_0,0,0")) { //去掉knowledgePoint=0
 
-                accuracy = new BigDecimal(correct).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
-                str = "knowledgePoint=" + knowledgePoint + "|" +
-                        "correct=" + correct + "|" +
-                        "error=" + error + "|" +
+                if (total != 0){
+
+                    accuracy = new BigDecimal(corr).divide(new BigDecimal(total), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
+                }
+                strbuffer = "knowledgePoint=" + bufferedPoint + "|" +
+                        "correct=" + corrAppend.toString() + "|" +
+                        "error=" + erroAppend.toString() + "|" +
+                        "notknow=" + notAppend.toString() + "|" +
                         "sum=" + sum + "|" +
                         "accuracy=" + accuracy + "|" +
                         "totalTime=" + time;
-                sb.append(str).append("&&");
+                sb.append(strbuffer).append("&&");
             }
-
 
         }
         String str;
         if (!notHave) {
-            String knowledgePoint = knowledgePointRow;
-            long time = timeRow;
-            long correct = 0L, error = 0L, sum = 1L;
-            if (correctRow == 0) {
 
-                correct = 1L;
-                error = 0L;
+            String knowledgePoint = kpRow;
+            long time = timeRow;
+            String correct = "", error = "", notknow = "", sum = "1";
+            int correctnum = 0;
+            if (correctRow == 0) {
+                correctnum = 1;
+                correct += questionId;
             } else if (correctRow == 1) {
-                correct = 0L;
-                error = 1L;
+                error += questionId;
+            } else if (correctRow == 2) {
+
+                notknow += questionId;
             }
-            accuracy = new BigDecimal(correct).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
+            accuracy = new BigDecimal(correctnum).divide(new BigDecimal(1), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
 
             str = "knowledgePoint=" + knowledgePoint + "|" +
                     "correct=" + correct + "|" +
                     "error=" + error + "|" +
+                    "notknow=" + notknow + "|" +
                     "sum=" + sum + "|" +
                     "accuracy=" + accuracy + "|" +
                     "totalTime=" + time;

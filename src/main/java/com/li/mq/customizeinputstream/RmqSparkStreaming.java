@@ -3,6 +3,7 @@ package com.li.mq.customizeinputstream;
 import com.li.mq.bean.AccuracyBean;
 import com.li.mq.bean.UserAccuracy;
 import com.li.mq.bean.UserCourseAccuracyBean;
+import com.li.mq.bean.UserKnowledgeAccuracyBean;
 import com.li.mq.constants.TopicRecordConstant;
 import com.li.mq.udaf.TopicRecordAccuracyUDAF;
 import com.li.mq.udaf.TopicRecordCourse2AccUDAF;
@@ -283,8 +284,39 @@ public class RmqSparkStreaming {
                         }
 
 //                        AccuracyBean.putAllAccuracy2hbase(conf, AccuracyBean.TEST_HBASE_TABLE, acs);
-//                        UserCourseAccuracyBean.putAllCourse2hbase(conf, acs);
-                        UserAccuracy.putAllUser2hbase(conf, acs);
+                        new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                try {
+                                    UserKnowledgeAccuracyBean.putAllKnow2hbase(conf, acs);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        }).start();
+                        new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                try {
+                                    UserCourseAccuracyBean.putAllCourse2hbase(conf, acs);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        }).start();
+                        new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                try {
+                                    UserAccuracy.putAllUser2hbase(conf, acs);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        }).start();
+
+
+
 //                        System.out.println(acs.size());
                     }
                 });

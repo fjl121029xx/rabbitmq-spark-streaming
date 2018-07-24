@@ -68,7 +68,7 @@ public class UserCourseAccuracyBean {
                 }
             }
 
-            String array[][] = new String[accuracyList.size()][UserCourseAccuracyBean.class.getDeclaredFields().length];
+            String array[][] = new String[list.size()][UserCourseAccuracyBean.class.getDeclaredFields().length];
             int i = 0;
             for (UserCourseAccuracyBean uca : list) {
 
