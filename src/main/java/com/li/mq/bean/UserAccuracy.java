@@ -35,6 +35,7 @@ public class UserAccuracy {
     public static final String HBASE_TABLE_COLUMN_CORRECT = "correct";
     public static final String HBASE_TABLE_COLUMN_ERROR = "error";
     public static final String HBASE_TABLE_COLUMN_NOTKNOW = "notknow";
+    public static final String HBASE_TABLE_COLUMN_CANNOT = "cannot";
     public static final String HBASE_TABLE_COLUMN_SUM = "sum";
     public static final String HBASE_TABLE_COLUMN_ACCURACY = "accuracy";
     public static final String HBASE_TABLE_COLUMN_SUBMITTIME = "submitTime";
@@ -62,6 +63,10 @@ public class UserAccuracy {
      *
      */
     private String notknow;
+    /**
+     *
+     */
+    private String cannot;
 
     /**
      *
@@ -110,6 +115,7 @@ public class UserAccuracy {
                     ua.setSum(ac.getSum());
                     ua.setAverageAnswerTime(ac.getAverageAnswerTime());
                     ua.setAccuracy(ac.getAccuracy());
+                    ua.setCannot(ac.getCannot());
                     list.add(ua);
                 }
             }
@@ -129,7 +135,8 @@ public class UserAccuracy {
                         uca.getAccuracy().toString(),
                         uca.getSubmitTime(),
                         uca.getAverageAnswerTime().toString(),
-                        uca.getItemNums()
+                        uca.getItemNums(),
+                        uca.getCannot()
                 };
 
                 array[i] = row;
@@ -178,6 +185,9 @@ public class UserAccuracy {
                 put.addColumn(Bytes.toBytes(UserAccuracy.HBASE_TABLE_FAMILY_COLUMNS),
                         Bytes.toBytes(UserAccuracy.HBASE_TABLE_COLUMN_ITEMNUMS),
                         Bytes.toBytes(columns[8]));
+                put.addColumn(Bytes.toBytes(UserAccuracy.HBASE_TABLE_FAMILY_COLUMNS),
+                        Bytes.toBytes(UserAccuracy.HBASE_TABLE_COLUMN_CANNOT),
+                        Bytes.toBytes(columns[9]));
 
                 puts.add(put);
             }
@@ -201,7 +211,8 @@ public class UserAccuracy {
         ////////////////
         String correct = uaFromHbase.getCorrect();
         String error = uaFromHbase.getError();
-        String notknow = uaFromHbase.getNotknow();
+        String cannotAnswer = uaFromHbase.getCannot();
+        String undo = uaFromHbase.getNotknow();
         String itemNums = uaFromHbase.getItemNums();
         Long averageAnswerTime = uaFromHbase.getAverageAnswerTime();
         Long sum = uaFromHbase.getSum();
@@ -209,7 +220,8 @@ public class UserAccuracy {
         //////////////////////////////
         String newUserCorrect = newUser.getCorrect();
         String newUserError = newUser.getError();
-        String newUserNotknow = newUser.getNotknow();
+        String newUserCannotAnswer = newUser.getCannot();
+        String newUserUndo = newUser.getNotknow();
         String newUserItemNums = newUser.getItemNums();
         String newUserSubmitTime = newUser.getSubmitTime();
         Long newUserAverageAnswerTime = newUser.getAverageAnswerTime();
@@ -218,20 +230,19 @@ public class UserAccuracy {
         StringBuilder corbud = new StringBuilder();
         StringBuilder errbud = new StringBuilder();
         StringBuilder notknowBud = new StringBuilder();
+        StringBuilder cannotBud = new StringBuilder();
 
         try {
-            corbud = AccuracyBean.mergeAnwser2(correct, newUserCorrect, newUserError, newUserNotknow, corbud);
-            errbud = AccuracyBean.mergeAnwser2(error, newUserError, newUserCorrect, newUserNotknow, errbud);
-            notknowBud = AccuracyBean.mergeAnwser2(notknow, newUserNotknow, newUserCorrect, newUserError, notknowBud);
+            corbud = AccuracyBean.mergeAnwser2(correct, newUserCorrect, newUserError, newUserUndo, newUserCannotAnswer, corbud);
+            errbud = AccuracyBean.mergeAnwser2(error, newUserError, newUserCorrect, newUserUndo, newUserCannotAnswer, errbud);
+            notknowBud = AccuracyBean.mergeAnwser2(undo, newUserUndo, newUserCorrect, newUserError, newUserCannotAnswer, notknowBud);
+            cannotBud = AccuracyBean.mergeAnwser2(cannotAnswer, newUserCannotAnswer, newUserCorrect, newUserError, newUserUndo, cannotBud);
         } catch (ParseException e) {
             e.printStackTrace();
         }
 
         long total = 0L;
         long corrsum = 0L;
-        long errosum = 0L;
-        long sumnot = 0L;
-
 
         if (!corbud.toString().equals("")) {
             corrsum = corbud.toString().split(",").length;
@@ -243,12 +254,15 @@ public class UserAccuracy {
         if (!notknowBud.toString().equals("")) {
             total += notknowBud.toString().split(",").length;
         }
+        if (!cannotBud.toString().equals("")) {
+            total += cannotBud.toString().split(",").length;
+        }
 
 
         newUser.setCorrect(corbud.toString());
         newUser.setError(errbud.toString());
         newUser.setNotknow(notknowBud.toString());
-
+        newUser.setCannot(cannotBud.toString());
         double accuracy = new BigDecimal(corrsum).divide(new BigDecimal(total), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
         newUser.setAccuracy(accuracy);
         newUser.setSum(newUserSum + sum);

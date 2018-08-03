@@ -5,7 +5,6 @@ import com.li.mq.constants.TopicRecordConstant;
 import com.li.mq.utils.HBaseUtil;
 import com.li.mq.utils.ValueUtil;
 import lombok.*;
-import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.HTable;
@@ -40,6 +39,7 @@ public class AccuracyBean {
     public static final String HBASE_TABLE_COLUMN_CORRECT = "correct";
     public static final String HBASE_TABLE_COLUMN_ERROR = "error";
     public static final String HBASE_TABLE_COLUMN_NOTKNOW = "notknow";
+    public static final String HBASE_TABLE_COLUMN_CANNOT = "cannot";
     public static final String HBASE_TABLE_COLUMN_SUM = "sum";
     public static final String HBASE_TABLE_COLUMN_ACCURACY = "accuracy";
     public static final String HBASE_TABLE_COLUMN_SUBMITTIME = "submitTime";
@@ -86,6 +86,10 @@ public class AccuracyBean {
      *
      */
     private String notknow;
+    /**
+     *
+     */
+    private String cannot;
 
     /**
      *
@@ -194,41 +198,44 @@ public class AccuracyBean {
 
             String correct = ValueUtil.parseStr2Str(_courseCorrectAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
             String error = ValueUtil.parseStr2Str(_courseCorrectAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
-            String notknow = ValueUtil.parseStr2Str(_courseCorrectAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_NOTKNOW);
+            String undo = ValueUtil.parseStr2Str(_courseCorrectAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_UNDO);
+            String cannotAnswer = ValueUtil.parseStr2Str(_courseCorrectAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CANNOTANSWER);
             long sum = ValueUtil.parseStr2Long(_courseCorrectAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
 
 
             String _courseCorrectAnalyzeInfoOther = mapRow.get(id);
             String correctOther = ValueUtil.parseStr2Str(_courseCorrectAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
             String errorOther = ValueUtil.parseStr2Str(_courseCorrectAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
-            String notknowOther = ValueUtil.parseStr2Str(_courseCorrectAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_NOTKNOW);
+            String undoOther = ValueUtil.parseStr2Str(_courseCorrectAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_UNDO);
+            String cannotAnswerOther = ValueUtil.parseStr2Str(_courseCorrectAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CANNOTANSWER);
             long sumOther = ValueUtil.parseStr2Long(_courseCorrectAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
 
 
-            StringBuilder cor = new StringBuilder();
-            StringBuilder err = new StringBuilder();
-            StringBuilder notknows = new StringBuilder();
+            StringBuilder correctBuilder = new StringBuilder();
+            StringBuilder errorBuilder = new StringBuilder();
+            StringBuilder undoBuilder = new StringBuilder();
+            StringBuilder cannotAnswerBuilder = new StringBuilder();
 
-            cor = AccuracyBean.mergeAnwser(correct, correctOther, cor);
-            err = AccuracyBean.mergeAnwser(error, errorOther, err);
-            notknows = AccuracyBean.mergeAnwser(notknow, notknowOther, notknows);
+            correctBuilder = AccuracyBean.mergeAnwser(correct, correctOther, correctBuilder);
+            errorBuilder = AccuracyBean.mergeAnwser(error, errorOther, errorBuilder);
+            undoBuilder = AccuracyBean.mergeAnwser(undo, undoOther, undoBuilder);
+            cannotAnswerBuilder = AccuracyBean.mergeAnwser(cannotAnswer, cannotAnswerOther, cannotAnswerBuilder);
 
             long total = 0L;
             long sumcorr = 0L;
-            long sumerro = 0L;
-            long sumnot = 0L;
 
-            if (!cor.toString().equals("")) {
-                sumcorr = cor.toString().split(",").length;
+            if (!correctBuilder.toString().equals("")) {
+                sumcorr = correctBuilder.toString().split(",").length;
                 total += sumcorr;
             }
-            if (!err.toString().equals("")) {
-                sumerro = err.toString().split(",").length;
-                total += sumerro;
+            if (!errorBuilder.toString().equals("")) {
+                total += errorBuilder.toString().split(",").length;
             }
-            if (!notknows.toString().equals("")) {
-                sumnot = notknow.toString().split(",").length;
-                total += sumnot;
+            if (!undoBuilder.toString().equals("")) {
+                total += undoBuilder.toString().split(",").length;
+            }
+            if (!cannotAnswerBuilder.toString().equals("")) {
+                total += cannotAnswerBuilder.toString().split(",").length;
             }
 
             sum += sumOther;
@@ -237,9 +244,10 @@ public class AccuracyBean {
 
 
             upda.append("courseWareId=" + courseWareId + "|" +
-                    "correct=" + cor.toString() + "|" +
-                    "error=" + err.toString() + "|" +
-                    "notknow=" + notknows.toString() + "|" +
+                    "correct=" + correctBuilder.toString() + "|" +
+                    "error=" + errorBuilder.toString() + "|" +
+                    "undo=" + undoBuilder.toString() + "|" +
+                    "cannot=" + cannotAnswerBuilder.toString() + "|" +
                     "sum=" + sum + "|" +
                     "accuracy=" + accuracy + "").append("&&");
         }
@@ -318,7 +326,8 @@ public class AccuracyBean {
             String knowledgePoint = ValueUtil.parseStr2Str(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_KNOWLEDGEPOINT);
             String correct = ValueUtil.parseStr2Str(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
             String error = ValueUtil.parseStr2Str(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
-            String notknow = ValueUtil.parseStr2Str(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_NOTKNOW);
+            String undo = ValueUtil.parseStr2Str(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_UNDO);
+            String cannotAnwser = ValueUtil.parseStr2Str(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CANNOTANSWER);
 
             long sum = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
             long time = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfo, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_TOTALTIME);
@@ -327,20 +336,23 @@ public class AccuracyBean {
             String _knowledgePointAnalyzeInfoOther = mapRow.get(id);
             String correctOther = ValueUtil.parseStr2Str(_knowledgePointAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
             String errorOther = ValueUtil.parseStr2Str(_knowledgePointAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
-            String notknowOther = ValueUtil.parseStr2Str(_knowledgePointAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_NOTKNOW);
+            String undoOther = ValueUtil.parseStr2Str(_knowledgePointAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_UNDO);
+            String cannotAnwserOther = ValueUtil.parseStr2Str(_knowledgePointAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CANNOTANSWER);
 
             long sumOther = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
             long timeOther = ValueUtil.parseStr2Long(_knowledgePointAnalyzeInfoOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_TOTALTIME);
 
 
-            StringBuilder cor = new StringBuilder();
-            StringBuilder err = new StringBuilder();
-            StringBuilder notknows = new StringBuilder();
+            StringBuilder correctBuilder = new StringBuilder();
+            StringBuilder errorBuilder = new StringBuilder();
+            StringBuilder undoBuilder = new StringBuilder();
+            StringBuilder cannotAnwserBuilder = new StringBuilder();
 
             try {
-                cor = AccuracyBean.mergeAnwser2(correct, correctOther, errorOther, notknowOther, cor);
-                err = AccuracyBean.mergeAnwser2(error, errorOther, correctOther, notknowOther, err);
-                notknows = AccuracyBean.mergeAnwser2(notknow, notknowOther, correctOther, errorOther, notknows);
+                correctBuilder = AccuracyBean.mergeAnwser2(correct, correctOther, errorOther, undoOther, cannotAnwserOther, correctBuilder);
+                errorBuilder = AccuracyBean.mergeAnwser2(error, errorOther, correctOther, undoOther, cannotAnwserOther, errorBuilder);
+                undoBuilder = AccuracyBean.mergeAnwser2(undo, undoOther, correctOther, errorOther, cannotAnwserOther, undoBuilder);
+                cannotAnwserBuilder = AccuracyBean.mergeAnwser2(cannotAnwser, cannotAnwserOther, correctOther, errorOther, undoOther, cannotAnwserBuilder);
             } catch (ParseException e) {
                 e.printStackTrace();
             }
@@ -348,15 +360,18 @@ public class AccuracyBean {
             long total = 0L;
             long sumcorr = 0L;
 
-            if (!cor.toString().equals("")) {
-                sumcorr = cor.toString().split(",").length;
+            if (!correctBuilder.toString().equals("")) {
+                sumcorr = correctBuilder.toString().split(",").length;
                 total += sumcorr;
             }
-            if (!err.toString().equals("")) {
-                total += err.toString().split(",").length;
+            if (!errorBuilder.toString().equals("")) {
+                total += errorBuilder.toString().split(",").length;
             }
-            if (!notknows.toString().equals("")) {
-                total += notknows.toString().split(",").length;
+            if (!undoBuilder.toString().equals("")) {
+                total += undoBuilder.toString().split(",").length;
+            }
+            if (!cannotAnwserBuilder.toString().equals("")) {
+                total += cannotAnwserBuilder.toString().split(",").length;
             }
 
             sum += sumOther;
@@ -367,9 +382,10 @@ public class AccuracyBean {
 
 
             upda.append("knowledgePoint=" + knowledgePoint + "|" +
-                    "correct=" + cor.toString() + "|" +
-                    "error=" + err.toString() + "|" +
-                    "notknow=" + notknows.toString() + "|" +
+                    "correct=" + correctBuilder.toString() + "|" +
+                    "error=" + errorBuilder.toString() + "|" +
+                    "undo=" + undoBuilder.toString() + "|" +
+                    "cannot=" + cannotAnwserBuilder.toString() + "|" +
                     "sum=" + sum + "|" +
                     "accuracy=" + accuracy + "|" +
                     "totalTime=" + time).append("&&");
@@ -420,13 +436,14 @@ public class AccuracyBean {
         return append;
     }
 
-    public static StringBuilder mergeAnwser2(String old, String toadd, String toremove1, String toremove2, StringBuilder append) throws ParseException {
+    public static StringBuilder mergeAnwser2(String old, String toadd, String toremove1, String toremove2, String toremove3, StringBuilder append) throws ParseException {
 
 
         List<String> oldArr = new ArrayList(Arrays.asList(old.split(",")));
         List<String> toAddArr = new ArrayList(Arrays.asList(toadd.split(",")));
         List<String> toRemove1Arr = new ArrayList(Arrays.asList(toremove1.split(",")));
         List<String> toRemove2Arr = new ArrayList(Arrays.asList(toremove2.split(",")));
+        List<String> toRemove3Arr = new ArrayList(Arrays.asList(toremove3.split(",")));
 //
         boolean allHave = true;
 
@@ -443,7 +460,7 @@ public class AccuracyBean {
         //corrOther没有，corrMerge有
         for (String str : oldArr) {
             if (!toAddArr.contains(str)) {
-                if (!toRemove1Arr.contains(str) && !toRemove2Arr.contains(str)) {
+                if (!toRemove1Arr.contains(str) && !toRemove2Arr.contains(str) && !toRemove3Arr.contains(str)) {
 
                     toAddArr.add(str);
                 }
@@ -529,9 +546,9 @@ public class AccuracyBean {
         return append;
     }
 
-    public static StringBuilder[] answerAnalyze(String answer, StringBuilder append, StringBuilder replaceOne, StringBuilder replaceTwo) {
+    public static StringBuilder[] answerAnalyze(String answer, StringBuilder append, StringBuilder replaceOne, StringBuilder replaceTwo, StringBuilder replaceThree) {
 
-        StringBuilder[] arr = new StringBuilder[3];
+        StringBuilder[] arr = new StringBuilder[4];
         if (!append.toString().contains(answer)) {
 
             appStr(answer, append);
@@ -544,10 +561,15 @@ public class AccuracyBean {
 
             replaceTwo = replaceStr(answer, replaceTwo);
         }
+        if (replaceThree.toString().contains(answer)) {
+
+            replaceThree = replaceStr(answer, replaceThree);
+        }
 
         arr[0] = append;
         arr[1] = replaceOne;
         arr[2] = replaceTwo;
+        arr[3] = replaceThree;
 
         return arr;
     }

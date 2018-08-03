@@ -10,12 +10,9 @@ import org.apache.spark.sql.types.DataType;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
 
-import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.text.ParseException;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 
 public class TopicRecordAccuracyUDAF extends UserDefinedAggregateFunction {
 
@@ -60,7 +57,7 @@ public class TopicRecordAccuracyUDAF extends UserDefinedAggregateFunction {
     @Override
     public void initialize(MutableAggregationBuffer buffer) {
 
-        buffer.update(0, "correct=|error=|notknow=|total=0|accuracy=0.00|submitTimeDate=0000_00_00_00_00_00|averageAnswerTime=000000");
+        buffer.update(0, "correct=|error=|undo=|cannot=|total=0|accuracy=0.00|submitTimeDate=0000_00_00_00_00_00|averageAnswerTime=000000");
     }
 
     @Override
@@ -80,7 +77,8 @@ public class TopicRecordAccuracyUDAF extends UserDefinedAggregateFunction {
 
         String correctLast = ValueUtil.parseStr2Str(last, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
         String errorLast = ValueUtil.parseStr2Str(last, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
-        String notknowLast = ValueUtil.parseStr2Str(last, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_NOTKNOW);
+        String notknowLast = ValueUtil.parseStr2Str(last, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_UNDO);
+        String cannotLast = ValueUtil.parseStr2Str(last, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CANNOTANSWER);
 
         Integer sumLast = ValueUtil.parseStr2Int(last, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
         Long evaluationAnswerTime = ValueUtil.parseStr2Long(last, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_AVERAGEANSWERTIME);
@@ -90,25 +88,40 @@ public class TopicRecordAccuracyUDAF extends UserDefinedAggregateFunction {
         StringBuilder corrAppend = new StringBuilder(correctLast);
         StringBuilder erroAppend = new StringBuilder(errorLast);
         StringBuilder notAppend = new StringBuilder(notknowLast);
+        StringBuilder canAppend = new StringBuilder(cannotLast);
 
-        if (correct == 0) {
+        if (correct == 1) {
 
-            StringBuilder[] sbs = AccuracyBean.answerAnalyze(answer, corrAppend, erroAppend, notAppend);
+            StringBuilder[] sbs = AccuracyBean.answerAnalyze(answer, corrAppend, erroAppend, notAppend, canAppend);
+
             corrAppend = sbs[0];
             erroAppend = sbs[1];
             notAppend = sbs[2];
-        } else if (correct == 1) {
+            canAppend = sbs[3];
+        } else if (correct == 2) {
 
-            StringBuilder[] sbs = AccuracyBean.answerAnalyze(answer, erroAppend, corrAppend, notAppend);
+            StringBuilder[] sbs = AccuracyBean.answerAnalyze(answer, erroAppend, corrAppend, notAppend, canAppend);
+
             erroAppend = sbs[0];
             corrAppend = sbs[1];
             notAppend = sbs[2];
-        } else if (correct == 2) {
+            canAppend = sbs[3];
+        } else if (correct == 0) {
 
-            StringBuilder[] sbs = AccuracyBean.answerAnalyze(answer, notAppend, corrAppend, erroAppend);
+            StringBuilder[] sbs = AccuracyBean.answerAnalyze(answer, notAppend, corrAppend, erroAppend, canAppend);
+
             notAppend = sbs[0];
             corrAppend = sbs[1];
             erroAppend = sbs[2];
+            canAppend = sbs[3];
+        } else if (correct == 3) {
+
+            StringBuilder[] sbs = AccuracyBean.answerAnalyze(answer, canAppend, corrAppend, erroAppend, notAppend);
+
+            canAppend = sbs[0];
+            corrAppend = sbs[1];
+            erroAppend = sbs[2];
+            notAppend = sbs[3];
         }
 
         long total = 0L;
@@ -123,16 +136,24 @@ public class TopicRecordAccuracyUDAF extends UserDefinedAggregateFunction {
         if (!notAppend.toString().equals("")) {
             total += notAppend.toString().split(",").length;
         }
+        if (!canAppend.toString().equals("")) {
+            total += canAppend.toString().split(",").length;
+        }
 
         evaluationAnswerTime += time;
-        double accuracy = new BigDecimal(corr)
-                .divide(new BigDecimal(total), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
+        double accuracy = 0.00;
+        if (total != 0) {
+
+            accuracy = new BigDecimal(corr)
+                    .divide(new BigDecimal(total), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
+        }
 
 
         buffer.update(0, "correct=" + corrAppend.toString() +
                 "|error=" + erroAppend.toString() +
                 "|sum=" + sumLast +
-                "|notknow=" + notAppend.toString() +
+                "|undo=" + notAppend.toString() +
+                "|cannot=" + canAppend.toString() +
                 "|accuracy=" + accuracy +
                 "|submitTimeDate=" + submitTimeDate +
                 "|averageAnswerTime=" + evaluationAnswerTime);
@@ -147,7 +168,9 @@ public class TopicRecordAccuracyUDAF extends UserDefinedAggregateFunction {
 
         String correctMerge = ValueUtil.parseStr2Str(accuracyAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
         String errorMerge = ValueUtil.parseStr2Str(accuracyAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
-        String notknowMerge = ValueUtil.parseStr2Str(accuracyAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_NOTKNOW);
+        String notknowMerge = ValueUtil.parseStr2Str(accuracyAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_UNDO);
+        String cannotMerge = ValueUtil.parseStr2Str(accuracyAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CANNOTANSWER);
+
         Integer sumMerge = ValueUtil.parseStr2Int(accuracyAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
         Long evaluationAnswerTimeMerge = ValueUtil.parseStr2Long(accuracyAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_AVERAGEANSWERTIME);
         String submitTimeDate = ValueUtil.parseStr2Str(accuracyAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUBMITTIMEDATE);
@@ -156,7 +179,9 @@ public class TopicRecordAccuracyUDAF extends UserDefinedAggregateFunction {
 
         String correctOther = ValueUtil.parseStr2Str(accuracyAnalyzeOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
         String errorOther = ValueUtil.parseStr2Str(accuracyAnalyzeOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
-        String notknowOther = ValueUtil.parseStr2Str(accuracyAnalyzeOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_NOTKNOW);
+        String notknowOther = ValueUtil.parseStr2Str(accuracyAnalyzeOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_UNDO);
+        String cannotOther = ValueUtil.parseStr2Str(accuracyAnalyzeOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CANNOTANSWER);
+
         Integer sumOther = ValueUtil.parseStr2Int(accuracyAnalyzeOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
         Long evaluationAnswerTimeOther = ValueUtil.parseStr2Long(accuracyAnalyzeOther, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_AVERAGEANSWERTIME);
 
@@ -167,6 +192,7 @@ public class TopicRecordAccuracyUDAF extends UserDefinedAggregateFunction {
         StringBuilder cor = new StringBuilder();
         StringBuilder err = new StringBuilder();
         StringBuilder notknow = new StringBuilder();
+        StringBuilder cannot = new StringBuilder();
 
         sumMerge += sumOther;
 
@@ -174,6 +200,7 @@ public class TopicRecordAccuracyUDAF extends UserDefinedAggregateFunction {
             cor = AccuracyBean.mergeAnwser(correctMerge, submitTimeDate, correctOther, submitTimeDateOther, cor);
             err = AccuracyBean.mergeAnwser(errorMerge, submitTimeDate, errorOther, submitTimeDateOther, err);
             notknow = AccuracyBean.mergeAnwser(notknowMerge, submitTimeDate, notknowOther, submitTimeDateOther, notknow);
+            cannot = AccuracyBean.mergeAnwser(cannotMerge, submitTimeDate, cannotOther, submitTimeDateOther, cannot);
         } catch (ParseException e) {
             e.printStackTrace();
         }
@@ -195,13 +222,18 @@ public class TopicRecordAccuracyUDAF extends UserDefinedAggregateFunction {
             sumnot = notknow.toString().split(",").length;
             total += sumnot;
         }
+        if (!cannot.toString().equals("")) {
+            sumnot = cannot.toString().split(",").length;
+            total += sumnot;
+        }
 
 
         double accuracy = new BigDecimal(sumcorr).divide(new BigDecimal(total), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
 
         buffer1.update(0, "correct=" + cor.toString() +
                 "|error=" + err.toString() +
-                "|notknow=" + notknow.toString() +
+                "|undo=" + notknow.toString() +
+                "|cannot=" + cannot.toString() +
                 "|sum=" + sumMerge +
                 "|accuracy=" + accuracy +
                 "|submitTimeDateOther=" + submitTimeDateOther +

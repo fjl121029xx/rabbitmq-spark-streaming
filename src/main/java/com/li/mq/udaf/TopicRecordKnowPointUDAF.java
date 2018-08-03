@@ -53,7 +53,7 @@ public class TopicRecordKnowPointUDAF extends UserDefinedAggregateFunction {
     @Override
     public void initialize(MutableAggregationBuffer buffer) {
         //knowledgePoint=step_subjectId_knowledgePoint|questionIds=0|correct=0|error=0|sum=0|accuracy=0
-        buffer.update(0, "knowledgePoint=0_0_0,0,0|correct=|error=|sum=|notknow=|accuracy=0|totalTime=0");
+        buffer.update(0, "knowledgePoint=0_0_0,0,0|correct=|error=|cannot=|sum=|undo=|accuracy=0|totalTime=0");
     }
 
     @Override
@@ -67,7 +67,6 @@ public class TopicRecordKnowPointUDAF extends UserDefinedAggregateFunction {
         long questionId = input.getLong(5);
 
         kpRow = step + "_" + subjectId + "_" + kpRow;
-
 
 
         StringBuilder sb = new StringBuilder();
@@ -85,7 +84,8 @@ public class TopicRecordKnowPointUDAF extends UserDefinedAggregateFunction {
 
             String correct = ValueUtil.parseStr2Str(strbuffer, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
             String error = ValueUtil.parseStr2Str(strbuffer, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
-            String notknow = ValueUtil.parseStr2Str(strbuffer, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_NOTKNOW);
+            String undo = ValueUtil.parseStr2Str(strbuffer, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_UNDO);
+            String cannotAnswer = ValueUtil.parseStr2Str(strbuffer, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CANNOTANSWER);
 
             long sum = ValueUtil.parseStr2Long(strbuffer, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
             long time = ValueUtil.parseStr2Long(strbuffer, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_TOTALTIME);
@@ -93,30 +93,41 @@ public class TopicRecordKnowPointUDAF extends UserDefinedAggregateFunction {
 
             StringBuilder corrAppend = new StringBuilder(correct);
             StringBuilder erroAppend = new StringBuilder(error);
-            StringBuilder notAppend = new StringBuilder(notknow);
+            StringBuilder undoAppend = new StringBuilder(undo);
+            StringBuilder cannotAnswerAppend = new StringBuilder(cannotAnswer);
 
             if (kpRow.equals(bufferedPoint)) {
 
                 notHave = true;
 
-                if (correctRow == 0) {
+                if (correctRow == 1) {
 
-                    StringBuilder[] sbs = AccuracyBean.answerAnalyze(Long.toString(questionId), corrAppend, erroAppend, notAppend);
+                    StringBuilder[] sbs = AccuracyBean.answerAnalyze(Long.toString(questionId), corrAppend, erroAppend, undoAppend, cannotAnswerAppend);
                     corrAppend = sbs[0];
                     erroAppend = sbs[1];
-                    notAppend = sbs[2];
-                } else if (correctRow == 1) {
-
-                    StringBuilder[] sbs = AccuracyBean.answerAnalyze(Long.toString(questionId), erroAppend, corrAppend, notAppend);
-                    erroAppend = sbs[0];
-                    corrAppend = sbs[1];
-                    notAppend = sbs[2];
+                    undoAppend = sbs[2];
+                    cannotAnswerAppend = sbs[3];
                 } else if (correctRow == 2) {
 
-                    StringBuilder[] sbs = AccuracyBean.answerAnalyze(Long.toString(questionId), notAppend, corrAppend, erroAppend);
-                    notAppend = sbs[0];
+                    StringBuilder[] sbs = AccuracyBean.answerAnalyze(Long.toString(questionId), erroAppend, corrAppend, undoAppend, cannotAnswerAppend);
+                    erroAppend = sbs[0];
+                    corrAppend = sbs[1];
+                    undoAppend = sbs[2];
+                    cannotAnswerAppend = sbs[3];
+                } else if (correctRow == 0) {
+
+                    StringBuilder[] sbs = AccuracyBean.answerAnalyze(Long.toString(questionId), undoAppend, corrAppend, erroAppend, cannotAnswerAppend);
+                    undoAppend = sbs[0];
                     corrAppend = sbs[1];
                     erroAppend = sbs[2];
+                    cannotAnswerAppend = sbs[3];
+                } else if (correctRow == 3) {
+
+                    StringBuilder[] sbs = AccuracyBean.answerAnalyze(Long.toString(questionId), cannotAnswerAppend, corrAppend, erroAppend, undoAppend);
+                    cannotAnswerAppend = sbs[0];
+                    corrAppend = sbs[1];
+                    erroAppend = sbs[2];
+                    undoAppend = sbs[2];
                 }
 
                 sum++;
@@ -132,20 +143,24 @@ public class TopicRecordKnowPointUDAF extends UserDefinedAggregateFunction {
             if (!erroAppend.toString().equals("")) {
                 total += erroAppend.toString().split(",").length;
             }
-            if (!notAppend.toString().equals("")) {
-                total += notAppend.toString().split(",").length;
+            if (!undoAppend.toString().equals("")) {
+                total += undoAppend.toString().split(",").length;
+            }
+            if (!cannotAnswerAppend.toString().equals("")) {
+                total += cannotAnswerAppend.toString().split(",").length;
             }
 
             if (!bufferedPoint.equals("0_0_0,0,0")) { //去掉knowledgePoint=0
 
-                if (total != 0){
+                if (total != 0) {
 
                     accuracy = new BigDecimal(corr).divide(new BigDecimal(total), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
                 }
                 strbuffer = "knowledgePoint=" + bufferedPoint + "|" +
                         "correct=" + corrAppend.toString() + "|" +
                         "error=" + erroAppend.toString() + "|" +
-                        "notknow=" + notAppend.toString() + "|" +
+                        "undo=" + undoAppend.toString() + "|" +
+                        "cannot=" + cannotAnswerAppend.toString() + "|" +
                         "sum=" + sum + "|" +
                         "accuracy=" + accuracy + "|" +
                         "totalTime=" + time;
@@ -158,23 +173,27 @@ public class TopicRecordKnowPointUDAF extends UserDefinedAggregateFunction {
 
             String knowledgePoint = kpRow;
             long time = timeRow;
-            String correct = "", error = "", notknow = "", sum = "1";
+            String correct = "", error = "", notknow = "", cannot = "", sum = "1";
             int correctnum = 0;
-            if (correctRow == 0) {
+            if (correctRow == 1) {
                 correctnum = 1;
                 correct += questionId;
-            } else if (correctRow == 1) {
-                error += questionId;
             } else if (correctRow == 2) {
+                error += questionId;
+            } else if (correctRow == 0) {
 
                 notknow += questionId;
+            } else if (correctRow == 3) {
+
+                cannot += questionId;
             }
             accuracy = new BigDecimal(correctnum).divide(new BigDecimal(1), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
 
             str = "knowledgePoint=" + knowledgePoint + "|" +
                     "correct=" + correct + "|" +
                     "error=" + error + "|" +
-                    "notknow=" + notknow + "|" +
+                    "undo=" + notknow + "|" +
+                    "cannot=" + cannot + "|" +
                     "sum=" + sum + "|" +
                     "accuracy=" + accuracy + "|" +
                     "totalTime=" + time;

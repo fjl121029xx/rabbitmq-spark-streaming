@@ -42,11 +42,11 @@ public class RmqSparkStreaming {
 
         final SparkConf conf = new SparkConf()
 //                .setMaster("spark://master:7077")
-                .setMaster("local[2]")
+//                .setMaster("local[2]")
                 .setAppName("RmqSparkStreaming")
                 .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
-        String chechkpoint = "D:\\tmp\\checkpoint";
-//        String chechkpoint = "hdfs://192.168.100.26:8020/sparkstreaming/topicrecord/checkpoint/data";
+//        String chechkpoint = "D:\\2\\checkpoint";
+        String chechkpoint = "hdfs://192.168.100.26:8020/sparkstreaming/topicrecord/checkpoint/data";
 
         try (JavaStreamingContext jsc = JavaStreamingContext.getOrCreate(chechkpoint, new Function0<JavaStreamingContext>() {
             private static final long serialVersionUID = -3522596327158762004L;
@@ -248,7 +248,7 @@ public class RmqSparkStreaming {
                         "from tb_topic_record " +
                         "group by userId");
 
-                return result.repartition(18).toJavaRDD();
+                return result.toJavaRDD().coalesce(3);
             }
         });
     }
@@ -282,7 +282,8 @@ public class RmqSparkStreaming {
                             AccuracyBean ac = row2Accuracy(row);
                             acs.add(ac);
                         }
-
+//                        UserCourseAccuracyBean.putAllCourse2hbase(conf, acs);
+//                        UserAccuracy.putAllUser2hbase(conf, acs);
 //                        AccuracyBean.putAllAccuracy2hbase(conf, AccuracyBean.TEST_HBASE_TABLE, acs);
                         new Thread(new Runnable() {
                             @Override
@@ -316,7 +317,6 @@ public class RmqSparkStreaming {
                         }).start();
 
 
-
 //                        System.out.println(acs.size());
                     }
                 });
@@ -336,7 +336,8 @@ public class RmqSparkStreaming {
 
         String correct = ValueUtil.parseStr2Str(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
         String error = ValueUtil.parseStr2Str(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
-        String notknow = ValueUtil.parseStr2Str(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_NOTKNOW);
+        String notknow = ValueUtil.parseStr2Str(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_UNDO);
+        String cannot = ValueUtil.parseStr2Str(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CANNOTANSWER);
 
         Long sum = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
 
@@ -351,7 +352,7 @@ public class RmqSparkStreaming {
         ac.setUserId(userId);
         ac.setSubmitTime(submitTimeDate);
 
-
+        ac.setCannot(cannot);
         ac.setAverageAnswerTime(averageAnswerTime);
         ac.setCorrect(correct);
         ac.setError(error);

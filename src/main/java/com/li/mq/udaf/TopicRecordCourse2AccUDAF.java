@@ -52,7 +52,7 @@ public class TopicRecordCourse2AccUDAF extends UserDefinedAggregateFunction {
         //(courseWareId)_(courseware_type)_(courseware_id)
         //question_id
         //courseWareId=0|correct=0|error=0|sum=0|accuracy=0
-        buffer.update(0, "courseWareId=0_1_2|correct=|notknow=|error=|sum=|accuracy=0.00");
+        buffer.update(0, "courseWareId=0_1_2|correct=|cannot=|undo=|error=|sum=|accuracy=0.00");
     }
 
     @Override
@@ -78,7 +78,8 @@ public class TopicRecordCourse2AccUDAF extends UserDefinedAggregateFunction {
 
         String correct = "";
         String error = "";
-        String notknow = "";
+        String undo = "";
+        String cannot = "";
 
         long sum = 0L;
         double accuracy = 0.00;
@@ -92,18 +93,17 @@ public class TopicRecordCourse2AccUDAF extends UserDefinedAggregateFunction {
 
             correct = ValueUtil.parseStr2Str(str, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
             error = ValueUtil.parseStr2Str(str, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
-            notknow = ValueUtil.parseStr2Str(str, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_NOTKNOW);
+            undo = ValueUtil.parseStr2Str(str, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_UNDO);
+            cannot = ValueUtil.parseStr2Str(str, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CANNOTANSWER);
 
             sum = ValueUtil.parseStr2Long(str, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
-
-
 
 
             if (courseWareId.equals(courseWareIdRow + "_" + courseWareTypeRow.toString() + "_" + questionSourceRow)) {
 
                 notHave = true;
 
-                if (correctRow == 0) {
+                if (correctRow == 1) {
                     //作对
                     if (!correct.contains(questionIdRow.toString())) {
                         if (correct.equals("")) {
@@ -129,24 +129,40 @@ public class TopicRecordCourse2AccUDAF extends UserDefinedAggregateFunction {
                             error = error.replace("," + questionIdRow + ",", ",");
                         }
                     }
-                    if (notknow.contains(questionIdRow + "")) {
+                    if (undo.contains(questionIdRow + "")) {
 
-                        if (notknow.startsWith(questionIdRow + ",")) {
+                        if (undo.startsWith(questionIdRow + ",")) {
 
-                            notknow = notknow.replace(questionIdRow + ",", "");
-                        } else if (notknow.endsWith("," + questionIdRow)) {
+                            undo = undo.replace(questionIdRow + ",", "");
+                        } else if (undo.endsWith("," + questionIdRow)) {
 
-                            notknow = notknow.replace("," + questionIdRow, "");
-                        } else if (notknow.startsWith(questionIdRow + "")) {
+                            undo = undo.replace("," + questionIdRow, "");
+                        } else if (undo.startsWith(questionIdRow + "")) {
 
-                            notknow = notknow.replace(questionIdRow + "", "");
-                        } else if (notknow.contains("," + questionIdRow + ",")) {
+                            undo = undo.replace(questionIdRow + "", "");
+                        } else if (undo.contains("," + questionIdRow + ",")) {
 
-                            notknow = notknow.replace("," + questionIdRow + ",", ",");
+                            undo = undo.replace("," + questionIdRow + ",", ",");
+                        }
+                    }
+                    if (cannot.contains(questionIdRow + "")) {
+
+                        if (cannot.startsWith(questionIdRow + ",")) {
+
+                            cannot = cannot.replace(questionIdRow + ",", "");
+                        } else if (cannot.endsWith("," + questionIdRow)) {
+
+                            cannot = cannot.replace("," + questionIdRow, "");
+                        } else if (cannot.startsWith(questionIdRow + "")) {
+
+                            cannot = cannot.replace(questionIdRow + "", "");
+                        } else if (cannot.contains("," + questionIdRow + ",")) {
+
+                            cannot = cannot.replace("," + questionIdRow + ",", ",");
                         }
                     }
 
-                } else if (correctRow == 1) {
+                } else if (correctRow == 2) {
                     //做错
                     if (!error.contains(questionIdRow + "")) {
 
@@ -173,32 +189,48 @@ public class TopicRecordCourse2AccUDAF extends UserDefinedAggregateFunction {
                             correct = correct.replace("," + questionIdRow + ",", ",");
                         }
                     }
-                    if (notknow.contains(questionIdRow + "")) {
+                    if (undo.contains(questionIdRow + "")) {
 
-                        if (notknow.startsWith(questionIdRow + ",")) {
+                        if (undo.startsWith(questionIdRow + ",")) {
 
-                            notknow = notknow.replace(questionIdRow + ",", "");
-                        } else if (notknow.endsWith("," + questionIdRow)) {
+                            undo = undo.replace(questionIdRow + ",", "");
+                        } else if (undo.endsWith("," + questionIdRow)) {
 
-                            notknow = notknow.replace("," + questionIdRow, "");
-                        } else if (notknow.startsWith(questionIdRow + "")) {
+                            undo = undo.replace("," + questionIdRow, "");
+                        } else if (undo.startsWith(questionIdRow + "")) {
 
-                            notknow = notknow.replace(questionIdRow + "", "");
-                        } else if (notknow.contains("," + questionIdRow + ",")) {
+                            undo = undo.replace(questionIdRow + "", "");
+                        } else if (undo.contains("," + questionIdRow + ",")) {
 
-                            notknow = notknow.replace("," + questionIdRow + ",", ",");
+                            undo = undo.replace("," + questionIdRow + ",", ",");
+                        }
+                    }
+                    if (cannot.contains(questionIdRow + "")) {
+
+                        if (cannot.startsWith(questionIdRow + ",")) {
+
+                            cannot = cannot.replace(questionIdRow + ",", "");
+                        } else if (cannot.endsWith("," + questionIdRow)) {
+
+                            cannot = cannot.replace("," + questionIdRow, "");
+                        } else if (cannot.startsWith(questionIdRow + "")) {
+
+                            cannot = cannot.replace(questionIdRow + "", "");
+                        } else if (cannot.contains("," + questionIdRow + ",")) {
+
+                            cannot = undo.replace("," + questionIdRow + ",", ",");
                         }
                     }
 
 
-                } else if (correctRow == 2) {
+                } else if (correctRow == 0) {
 
-                    if (!notknow.contains(questionIdRow + "")) {
+                    if (!undo.contains(questionIdRow + "")) {
 
-                        if (notknow.equals("")) {
-                            notknow += "" + questionIdRow;
+                        if (undo.equals("")) {
+                            undo += "" + questionIdRow;
                         } else {
-                            notknow += "," + questionIdRow;
+                            undo += "," + questionIdRow;
                         }
                     }
 
@@ -234,6 +266,82 @@ public class TopicRecordCourse2AccUDAF extends UserDefinedAggregateFunction {
                             error = error.replace("," + questionIdRow + ",", ",");
                         }
                     }
+                    if (cannot.contains(questionIdRow + "")) {
+
+                        if (cannot.startsWith(questionIdRow + ",")) {
+
+                            cannot = cannot.replace(questionIdRow + ",", "");
+                        } else if (cannot.endsWith("," + questionIdRow)) {
+
+                            cannot = cannot.replace("," + questionIdRow, "");
+                        } else if (cannot.startsWith(questionIdRow + "")) {
+
+                            cannot = cannot.replace(questionIdRow + "", "");
+                        } else if (cannot.contains("," + questionIdRow + ",")) {
+
+                            cannot = cannot.replace("," + questionIdRow + ",", ",");
+                        }
+                    }
+
+                } else if (correctRow == 3) {
+
+                    if (!cannot.contains(questionIdRow + "")) {
+
+                        if (cannot.equals("")) {
+                            cannot += "" + questionIdRow;
+                        } else {
+                            cannot += "," + questionIdRow;
+                        }
+                    }
+
+                    if (correct.contains(questionIdRow + "")) {
+
+                        if (correct.startsWith(questionIdRow + ",")) {
+
+                            correct = correct.replace(questionIdRow + ",", "");
+                        } else if (correct.endsWith("," + questionIdRow)) {
+
+                            correct = correct.replace("," + questionIdRow, "");
+                        } else if (correct.startsWith(questionIdRow + "")) {
+
+                            correct = correct.replace(questionIdRow + "", "");
+                        } else if (correct.contains("," + questionIdRow + ",")) {
+
+                            correct = correct.replace("," + questionIdRow + ",", ",");
+                        }
+                    }
+                    if (error.contains(questionIdRow + "")) {
+
+                        if (error.startsWith(questionIdRow + ",")) {
+
+                            error = error.replace(questionIdRow + ",", "");
+                        } else if (error.endsWith("," + questionIdRow)) {
+
+                            error = error.replace("," + questionIdRow, "");
+                        } else if (error.startsWith(questionIdRow + "")) {
+
+                            error = error.replace(questionIdRow + "", "");
+                        } else if (error.contains("," + questionIdRow + ",")) {
+
+                            error = error.replace("," + questionIdRow + ",", ",");
+                        }
+                    }
+                    if (undo.contains(questionIdRow + "")) {
+
+                        if (undo.startsWith(questionIdRow + ",")) {
+
+                            undo = undo.replace(questionIdRow + ",", "");
+                        } else if (undo.endsWith("," + questionIdRow)) {
+
+                            undo = undo.replace("," + questionIdRow, "");
+                        } else if (undo.startsWith(questionIdRow + "")) {
+
+                            undo = undo.replace(questionIdRow + "", "");
+                        } else if (undo.contains("," + questionIdRow + ",")) {
+
+                            undo = undo.replace("," + questionIdRow + ",", ",");
+                        }
+                    }
 
                 }
 
@@ -244,30 +352,32 @@ public class TopicRecordCourse2AccUDAF extends UserDefinedAggregateFunction {
 
                 long total = 0L;
                 long sumcorr = 0L;
-                long sumerro = 0L;
-                long sumenotknow = 0L;
 
                 if (!correct.equals("")) {
                     sumcorr = correct.split(",").length;
                     total += sumcorr;
                 }
                 if (!error.equals("")) {
-                    sumerro = error.split(",").length;
-                    total += sumerro;
+                    total += error.split(",").length;
                 }
-//                if (!notknow.equals("")) {
-//                    sumenotknow = notknow.split(",").length;
-//                    total += sumenotknow;
-//                }
+                if (!undo.equals("")) {
+                    total += undo.split(",").length;
+                }
+                if (!cannot.equals("")) {
+                    total += cannot.split(",").length;
+                }
                 sum++;
-                accuracy = new BigDecimal(sumcorr)
-                        .divide(new BigDecimal(total), 2, BigDecimal.ROUND_HALF_UP)
-                        .doubleValue();
+                if (total != 0) {
 
+                    accuracy = new BigDecimal(sumcorr)
+                            .divide(new BigDecimal(total), 2, BigDecimal.ROUND_HALF_UP)
+                            .doubleValue();
+                }
                 str = "courseWareId=" + courseWareId + "|" +
                         "correct=" + correct + "|" +
                         "error=" + error + "|" +
-                        "notknow=" + notknow + "|" +
+                        "undo=" + undo + "|" +
+                        "cannot=" + cannot + "|" +
                         "sum=" + sum + "|" +
                         "accuracy=" + accuracy + "";
                 sb.append(str).append("&&");
@@ -279,22 +389,27 @@ public class TopicRecordCourse2AccUDAF extends UserDefinedAggregateFunction {
         if (!notHave) {
             courseWareId = courseWareIdRow + "_" + courseWareTypeRow.toString() + "_" + questionSourceRow;
 
-            if (correctRow == 0) {
+            if (correctRow == 1) {
 
                 correct += questionIdRow + "";
-            } else if (correctRow == 1) {
-
-                error = questionIdRow + "";
             } else if (correctRow == 2) {
 
-                notknow = questionIdRow + "";
+                error = questionIdRow + "";
+            } else if (correctRow == 0) {
+
+                undo = questionIdRow + "";
+            }
+            else if (correctRow == 3) {
+
+                cannot = questionIdRow + "";
             }
             sum = 1;
             accuracy = new BigDecimal(1).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
             str = "courseWareId=" + courseWareId + "|" +
                     "correct=" + correct + "|" +
                     "error=" + error + "|" +
-                    "notknow=" + notknow + "|" +
+                    "undo=" + undo + "|" +
+                    "cannot=" + cannot + "|" +
                     "sum=" + sum + "|" +
                     "accuracy=" + accuracy + "";
 

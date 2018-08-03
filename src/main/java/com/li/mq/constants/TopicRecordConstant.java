@@ -81,7 +81,12 @@ public class TopicRecordConstant {
     /**
      * udaf param  notknow
      */
-    public static final String SSTREAM_TOPIC_RECORD_UDAF_NOTKNOW = "notknow";
+    public static final String SSTREAM_TOPIC_RECORD_UDAF_UNDO = "undo";
+
+    /**
+     * udaf param  notknow
+     */
+    public static final String SSTREAM_TOPIC_RECORD_UDAF_CANNOTANSWER = "cannot";
 
     /**
      * udaf param  sum

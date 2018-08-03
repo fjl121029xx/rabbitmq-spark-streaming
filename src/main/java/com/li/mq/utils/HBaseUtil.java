@@ -115,16 +115,16 @@ public class HBaseUtil {
     public static void main(String[] args) throws Exception {
 
         Configuration conf = HBaseConfiguration.create();
-//        conf.set("hbase.zookeeper.quorum", "192.168.65.130");
-        conf.set("hbase.zookeeper.quorum", "192.168.100.191");
+        conf.set("hbase.zookeeper.quorum", "192.168.100.2,192.168.100.3,192.168.100.4");
+//        conf.set("hbase.zookeeper.quorum", "192.168.100.191");
         conf.set("hbase.zookeeper.property.clientPort", HBaseUtil.CL);
         conf.set("hbase.rootdir", HBaseUtil.DIR);
 
         HBaseAdmin admin = new HBaseAdmin(conf);
 
-        HTableDescriptor table = new HTableDescriptor("knowAccuracy");
+        HTableDescriptor table = new HTableDescriptor("tody_videoplay");
 
-        HColumnDescriptor columnFamily = new HColumnDescriptor("accuracyinfo");
+        HColumnDescriptor columnFamily = new HColumnDescriptor("playinfo");
         columnFamily.setMaxVersions(10);
         table.addFamily(columnFamily);
 

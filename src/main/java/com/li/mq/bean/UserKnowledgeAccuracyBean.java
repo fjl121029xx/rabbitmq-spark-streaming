@@ -61,7 +61,7 @@ public class UserKnowledgeAccuracyBean {
                         UserKnowledgeAccuracyBean uka = new UserKnowledgeAccuracyBean();
                         String[] split = arr[i].split("\\|");
                         String course = userId + "&" + split[0].split("=")[1];
-                        String accuracyinfo = split[1] + "|" + split[2] + "|" + split[3];
+                        String accuracyinfo = split[1] + "|" + split[2] + "|" + split[3] + "|" + split[4];
 
                         uka.setKnowledge(course);
                         uka.setAccuracy(accuracyinfo);
@@ -130,26 +130,33 @@ public class UserKnowledgeAccuracyBean {
         String correct = accuracyinfo.split("\\|")[0].split("=")[1];
         String error = accuracyinfo.split("\\|")[1].split("=")[1];
         String notknow = accuracyinfo.split("\\|")[2].split("=")[1];
+        String cannot = accuracyinfo.split("\\|")[3].split("=")[1];
 
         //////////////////////////////
         String newAccuracyinfo = newUka.getAccuracy();
         String newCorrect = newAccuracyinfo.split("\\|")[0].split("=")[1];
         String newError = newAccuracyinfo.split("\\|")[1].split("=")[1];
         String newNotknow = newAccuracyinfo.split("\\|")[2].split("=")[1];
+        String newCannot = newAccuracyinfo.split("\\|")[4].split("=")[1];
 
 
         StringBuilder corBud = new StringBuilder();
         StringBuilder errBud = new StringBuilder();
         StringBuilder notknowBud = new StringBuilder();
+        StringBuilder cannotBud = new StringBuilder();
 
         try {
-            corBud = AccuracyBean.mergeAnwser2(correct, newCorrect, newError, newNotknow, corBud);
-            errBud = AccuracyBean.mergeAnwser2(error, newError, newCorrect, newNotknow, errBud);
-            errBud = AccuracyBean.mergeAnwser2(notknow, newNotknow, newCorrect, newError, errBud);
+            corBud = AccuracyBean.mergeAnwser2(correct, newCorrect, newError, newNotknow, newCannot, corBud);
+            errBud = AccuracyBean.mergeAnwser2(error, newError, newCorrect, newNotknow, newCannot, errBud);
+            notknowBud = AccuracyBean.mergeAnwser2(notknow, newNotknow, newCorrect, newError, newCannot, errBud);
+            cannotBud = AccuracyBean.mergeAnwser2(cannot, newCannot, newCorrect, newError, newNotknow, cannotBud);
         } catch (ParseException e) {
             e.printStackTrace();
         }
-        newUka.setAccuracy("correct=" + corBud.toString() + "|error=" + errBud.toString() + "|notknow=" + notknowBud.toString());
+        newUka.setAccuracy("correct=" + corBud.toString() +
+                "|error=" + errBud.toString() +
+                "|cannot=" + cannotBud.toString() +
+                "|undo=" + notknowBud.toString());
 
         return newUka;
 
