@@ -23,6 +23,7 @@ import org.apache.spark.sql.RowFactory;
 import org.apache.spark.sql.SQLContext;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
+import org.apache.spark.streaming.Duration;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
@@ -57,6 +58,7 @@ public class RmqSparkStreaming {
 
                 JavaStreamingContext jsc = new JavaStreamingContext(conf, Durations.seconds(5));
                 jsc.checkpoint(chechkpoint);
+                jsc.remember(new Duration(24 * 3600 * 1000));
 
                 JavaReceiverInputDStream<String> streamFromRamq = jsc.receiverStream(new RabbitmqReceiver());
 

@@ -3,6 +3,9 @@ package com.li.mq.bean;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -11,6 +14,8 @@ import lombok.*;
 @Setter
 @ToString
 public class TopicRecordBean {
+
+    private static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy_MM_dd_HH_mm");
 
     /**
      * 试题Id
@@ -110,6 +115,7 @@ public class TopicRecordBean {
                 "\t" + submitTime +
                 "\t" + subjectId +
                 "\t" + step +
-                "\t" + listened;
+                "\t" + listened +
+                "\t" + sdf.format(new Date(System.currentTimeMillis()));
     }
 }
