@@ -18,7 +18,7 @@ public class RabbitmqReceiver extends Receiver<String> {
 
     private ConnectionFactory factory;
     QueueingConsumer consumer;
-    private final static String HOSTNAME = "192.168.100.21";//define hostname for rabbitmq reciver
+    private final static String HOSTNAME = "192.168.100.153";//define hostname for rabbitmq reciver
     private final static String USERNAME = "rabbitmq_ztk";
     private final static String PASSWORD = "rabbitmq_ztk";
 

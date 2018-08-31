@@ -22,9 +22,12 @@ public class HBaseUtil {
     public static Configuration conf = null;
     private static Connection connection;
 
-    public static final String ZK = "192.168.100.49";
+    public static final String ZK = "192.168.100.2,192.168.100.3,192.168.100.4";
     public static final String CL = "2181";
     public static final String DIR = "/hbase";
+//    public static final String ZK = "192.168.100.27,192.168.100.28,192.168.100.29";
+//    public static final String CL = "2181";
+//    public static final String DIR = "/hbase";
 
     static {
 
@@ -115,15 +118,15 @@ public class HBaseUtil {
     public static void main(String[] args) throws Exception {
 
         Configuration conf = HBaseConfiguration.create();
-//        conf.set("hbase.zookeeper.quorum", "192.168.100.2,192.168.100.3,192.168.100.4");
+        conf.set("hbase.zookeeper.quorum", "192.168.100.2,192.168.100.3,192.168.100.4");
 //        conf.set("hbase.zookeeper.quorum", "192.168.100.191");
-        conf.set("hbase.zookeeper.quorum", "192.168.100.49");
+        conf.set("hbase.zookeeper.quorum", HBaseUtil.ZK);
         conf.set("hbase.zookeeper.property.clientPort", HBaseUtil.CL);
         conf.set("hbase.rootdir", HBaseUtil.DIR);
 
         HBaseAdmin admin = new HBaseAdmin(conf);
 
-        HTableDescriptor table = new HTableDescriptor("tody_videoplay");
+        HTableDescriptor table = new HTableDescriptor("videoplay_grotime");
 
         HColumnDescriptor columnFamily = new HColumnDescriptor("playinfo");
         columnFamily.setMaxVersions(10);

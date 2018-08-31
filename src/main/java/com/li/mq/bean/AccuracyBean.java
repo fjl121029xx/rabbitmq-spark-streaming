@@ -10,6 +10,7 @@ import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.spark.sql.Row;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -802,5 +803,49 @@ public class AccuracyBean {
         return newAc;
     }
 
+    public static AccuracyBean row2Accuracy(Row accuracyRow) {
 
+        long userId = accuracyRow.getLong(0);
+        String userCorrectAnalyze = accuracyRow.getString(1);
+        String courseCorrectAnalyze = accuracyRow.getString(2);
+        String knowledgePointAnalyze = accuracyRow.getString(3);
+        long count = accuracyRow.getLong(4);
+        String itemNums = accuracyRow.getString(5);
+
+        String correct = ValueUtil.parseStr2Str(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CORRECT);
+        String error = ValueUtil.parseStr2Str(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ERROR);
+        String notknow = ValueUtil.parseStr2Str(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_UNDO);
+        String cannot = ValueUtil.parseStr2Str(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_CANNOTANSWER);
+
+        Long sum = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUM);
+
+        Double accuracy = ValueUtil.parseStr2Dou(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_ACCURACY);
+        String submitTimeDate = ValueUtil.parseStr2Str(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_SUBMITTIMEDATE);
+        Long averageAnswerTime = ValueUtil.parseStr2Long(userCorrectAnalyze, TopicRecordConstant.SSTREAM_TOPIC_RECORD_UDAF_AVERAGEANSWERTIME);
+
+        averageAnswerTime = new BigDecimal(averageAnswerTime).divide(new BigDecimal(sum), 2, BigDecimal.ROUND_HALF_UP).longValue();
+
+
+        AccuracyBean ac = new AccuracyBean();
+        ac.setUserId(userId);
+        ac.setSubmitTime(submitTimeDate);
+
+        ac.setCannot(cannot);
+        ac.setAverageAnswerTime(averageAnswerTime);
+        ac.setCorrect(correct);
+        ac.setError(error);
+        ac.setNotknow(notknow);
+        ac.setSum(sum);
+        ac.setAccuracy(accuracy);
+        // 当前用户每个课件答题正确率
+        ac.setCourseWareCorrectAnalyze(courseCorrectAnalyze);
+        // 当前用户每个知识点答题正确率
+        ac.setKnowledgePointCorrectAnalyze(knowledgePointAnalyze);
+        // count
+        ac.setCount(count);
+
+        ac.setItemNums(itemNums);
+
+        return ac;
+    }
 }
